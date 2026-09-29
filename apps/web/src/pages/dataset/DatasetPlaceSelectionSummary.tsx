@@ -70,7 +70,7 @@ export function DatasetPlaceSelectionSummary({
             <p className="text-sm text-slate-500">
               {isLodging
                 ? `매입 요금 ${place.rateSummary ?? '요금 미등록'} · 기본 객실`
-                : `${place.linkLabel ?? '연결 없음'} · 좌표 ${hasCoords ? '등록됨' : '미등록'}`}
+                : `상위 ${place.parentPlace?.name ?? '없음'} · 좌표 ${hasCoords ? '등록됨' : '미등록'}`}
             </p>
           </div>
           <div className="flex flex-wrap justify-end gap-2">
@@ -97,17 +97,30 @@ export function DatasetPlaceSelectionSummary({
               GPS 도착 인정은 별도 반경·체류 규칙으로 판정합니다. 판정 엔진은 아직 연결하지 않았습니다.
             </p>
           </div>
+          {isLodging ? (
           <div className="rounded-2xl bg-[#F3FBF6] px-4 py-3">
-            <p className="text-sm font-semibold text-slate-800">같은 숙소에 연결 위치</p>
+            <p className="text-sm font-semibold text-slate-800">같은 숙소 원본에 연결된 장소</p>
             <p className="mt-1 text-sm text-slate-700">
               대표 {place.code}
               {primaryGate ? ` · 출입구 ${primaryGate.code}` : ' · 출입구 미연결'}
               {' · 픽업 미연동'}
             </p>
             <p className="mt-2 text-xs leading-relaxed text-slate-500">
-              출입·픽업은 별도 장소 ID로 관리합니다. 세부 좌표 기점은 장소 원본을 확인하세요.
+              객실·요금은 숙소 원본을 참조합니다. 미팅·체험장은 별도 장소이며 숙소 원본을 연결하지 않습니다.
             </p>
           </div>
+          ) : (
+          <div className="rounded-2xl bg-[#F3FBF6] px-4 py-3">
+            <p className="text-sm font-semibold text-slate-800">상위 · 하위 장소</p>
+            <p className="mt-1 text-sm text-slate-700">
+              {place.parentPlace ? `상위 ${place.parentPlace.name}` : '상위 없음'}
+              {primaryGate ? ` · 출입구 ${primaryGate.code}` : ''}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-slate-500">
+              숙소는 그 자체로 장소입니다. 이 유형에는 숙소 원본을 연결하지 않습니다.
+            </p>
+          </div>
+          )}
         </div>
       </div>
     </DatasetCard>

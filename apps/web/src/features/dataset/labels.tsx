@@ -11,7 +11,7 @@ export const PLACE_TYPE_LABEL: Record<CatalogPlaceType, string> = {
   EXPERIENCE: '체험장',
   MEETING: '미팅 장소',
   GATE: '출입 지점',
-  AREA: '상위 목적지',
+  AREA: '목적지',
 };
 
 export const ELEMENT_KIND_LABEL: Record<CatalogElementKind, string> = {

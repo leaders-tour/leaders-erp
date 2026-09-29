@@ -19,7 +19,7 @@ export const catalogRegionCreateSchema = z.object({
 
 export const catalogRegionUpdateSchema = catalogRegionCreateSchema.partial();
 
-export const catalogPlaceCreateSchema = z.object({
+const catalogPlaceFields = z.object({
   name: z.string().min(1).max(120),
   placeType: catalogPlaceTypeSchema,
   country: z.string().min(1).max(60).optional(),
@@ -34,7 +34,22 @@ export const catalogPlaceCreateSchema = z.object({
   status: catalogUsageStatusSchema.optional(),
 });
 
-export const catalogPlaceUpdateSchema = catalogPlaceCreateSchema.partial();
+function lodgingOnlyAccommodation(
+  data: { placeType?: 'LODGING' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA'; accommodationId?: string | null },
+  ctx: z.RefinementCtx,
+) {
+  if (data.placeType != null && data.placeType !== 'LODGING' && data.accommodationId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['accommodationId'],
+      message: 'accommodationId is only allowed when placeType is LODGING',
+    });
+  }
+}
+
+export const catalogPlaceCreateSchema = catalogPlaceFields.superRefine(lodgingOnlyAccommodation);
+
+export const catalogPlaceUpdateSchema = catalogPlaceFields.partial().superRefine(lodgingOnlyAccommodation);
 
 export const catalogRouteCreateSchema = z.object({
   name: z.string().min(1).max(120),

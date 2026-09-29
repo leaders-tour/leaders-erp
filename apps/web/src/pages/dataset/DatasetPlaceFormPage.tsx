@@ -9,7 +9,7 @@ import { datasetTheme } from '../../features/dataset/theme';
 import { DatasetButton, DatasetCard, DatasetField, DatasetPageShell, datasetControlClass } from '../../features/dataset/ui';
 import { DatasetPlaceFormMap } from './DatasetPlaceFormMap';
 
-const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'EXPERIENCE', 'MEETING', 'GATE'];
+const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
 const LODGING_ROLES = [
   { id: 'REPRESENTATIVE', label: '대표 위치' },
   { id: 'GATE', label: '출입 지점' },
@@ -106,10 +106,12 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const initialType = requestedType && PLACE_TYPES.includes(requestedType) ? requestedType : 'LODGING';
   const [placeType, setPlaceType] = useState<CatalogPlaceType>(initialType);
   const [status, setStatus] = useState<CatalogUsageStatus>('ACTIVE');
-  const [parentPlaceId, setParentPlaceId] = useState(searchParams.get('parentId') ?? '');
+  const [parentPlaceId, setParentPlaceId] = useState(initialType === 'AREA' ? '' : searchParams.get('parentId') ?? '');
   const [country, setCountry] = useState('몽골');
   const [regionId, setRegionId] = useState('');
-  const [accommodationId, setAccommodationId] = useState(searchParams.get('accommodationId') ?? '');
+  const [accommodationId, setAccommodationId] = useState(
+    initialType === 'LODGING' ? searchParams.get('accommodationId') ?? '' : '',
+  );
   const [lodgingRole, setLodgingRole] = useState<(typeof LODGING_ROLES)[number]['id']>('PICKUP');
   const [latInput, setLatInput] = useState('');
   const [lngInput, setLngInput] = useState('');
@@ -125,7 +127,9 @@ export function DatasetPlaceFormPage(): JSX.Element {
 
   const latitude = parseOptionalNumber(latInput);
   const longitude = parseOptionalNumber(lngInput);
-  const { accommodation } = useAccommodation(accommodationId || undefined);
+  const isArea = placeType === 'AREA';
+  const isLodging = placeType === 'LODGING';
+  const { accommodation } = useAccommodation(isLodging ? accommodationId || undefined : undefined);
 
   useEffect(() => {
     if (!isEdit || !editingPlace || hydrated) return;
@@ -133,10 +137,10 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setDisplayName(editingPlace.displayName ?? '');
     setPlaceType(editingPlace.placeType);
     setStatus(editingPlace.status);
-    setParentPlaceId(editingPlace.parentPlaceId ?? '');
+    setParentPlaceId(editingPlace.placeType === 'AREA' ? '' : editingPlace.parentPlaceId ?? '');
     setCountry(editingPlace.country);
     setRegionId(editingPlace.regionId ?? '');
-    setAccommodationId(editingPlace.accommodationId ?? '');
+    setAccommodationId(editingPlace.placeType === 'LODGING' ? editingPlace.accommodationId ?? '' : '');
     setLatInput(formatCoord(editingPlace.latitude));
     setLngInput(formatCoord(editingPlace.longitude));
     setCoordSource(editingPlace.latitude != null ? 'input' : null);
@@ -155,18 +159,22 @@ export function DatasetPlaceFormPage(): JSX.Element {
   }, [placeId, places]);
 
   useEffect(() => {
+    if (isArea) {
+      if (parentPlaceId) setParentPlaceId('');
+      return;
+    }
     if (!parentPlace) return;
     if (parentPlace.country) setCountry(parentPlace.country);
     if (parentPlace.regionId) setRegionId(parentPlace.regionId);
-    if (parentPlace.accommodationId) setAccommodationId(parentPlace.accommodationId);
+    if (isLodging && parentPlace.accommodationId) setAccommodationId(parentPlace.accommodationId);
     if (parentPlace.latitude != null && parentPlace.longitude != null && latitude == null && longitude == null) {
       setFocus({ lat: parentPlace.latitude, lng: parentPlace.longitude });
     }
-  }, [latitude, longitude, parentPlace]);
+  }, [isArea, isLodging, latitude, longitude, parentPlace, parentPlaceId]);
 
   const relatedPlaces = useMemo(() => {
     if (accommodationId) {
-      return places.filter((row) => row.accommodationId === accommodationId && row.id !== placeId);
+      return places.filter((row) => row.placeType === 'LODGING' && row.accommodationId === accommodationId && row.id !== placeId);
     }
     if (parentPlaceId) {
       return places.filter(
@@ -239,11 +247,11 @@ export function DatasetPlaceFormPage(): JSX.Element {
     placeType,
     country: country.trim() || '몽골',
     regionId: regionId || null,
-    parentPlaceId: parentPlaceId || null,
+    parentPlaceId: isArea ? null : parentPlaceId || null,
     latitude,
     longitude,
     displayName: displayName.trim() || null,
-    accommodationId: accommodationId || null,
+    accommodationId: isLodging ? accommodationId || null : null,
     status,
   });
 
@@ -298,8 +306,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
       } · 1박`
     : '요금 미등록';
 
-  const typeOptions: CatalogPlaceType[] =
-    placeType === 'AREA' || editingPlace?.placeType === 'AREA' ? [...PLACE_TYPES, 'AREA'] : PLACE_TYPES;
+  const typeOptions: CatalogPlaceType[] = PLACE_TYPES;
 
   return (
     <DatasetPageShell>
@@ -308,12 +315,20 @@ export function DatasetPlaceFormPage(): JSX.Element {
           <div>
             <p className="text-xs font-medium text-[#8B83B8]">일정 데이터 관리 / 장소 · 지역 · 경로 / 장소</p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{isEdit ? '장소 편집' : '장소 등록'}</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                {isEdit ? '장소 편집' : placeType === 'AREA' ? '목적지 등록' : '장소 등록'}
+              </h1>
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${datasetTheme.badgeSoft}`}>
-                {isEdit ? '편집' : '새장소'}
+                {isEdit ? '편집' : placeType === 'AREA' ? '새목적지' : '새장소'}
               </span>
             </div>
-            <p className="mt-1 text-sm text-slate-500">상위 장소 안의 픽업 지점을 등록하고, 좌표와 숙소 정보를 연결합니다.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {placeType === 'AREA'
+                ? '하위 장소를 묶는 목적지를 등록합니다. 목적지는 상위 장소가 없고, 좌표도 필수가 아닙니다.'
+                : placeType === 'LODGING'
+                  ? '숙소 장소를 등록하고, 객실·요금 원본인 숙소 정보에 연결합니다.'
+                  : '목적지나 다른 장소 아래의 지점을 등록합니다. 숙소 원본은 숙소 유형에서만 연결합니다.'}
+            </p>
           </div>
           <DatasetButton type="button" variant="outline" onClick={leaveToList}>
             목록으로
@@ -347,7 +362,16 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 </DatasetField>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DatasetField label="장소 유형">
-                    <select className={datasetControlClass} value={placeType} onChange={(event) => setPlaceType(event.target.value as CatalogPlaceType)}>
+                    <select
+                      className={datasetControlClass}
+                      value={placeType}
+                      onChange={(event) => {
+                        const next = event.target.value as CatalogPlaceType;
+                        setPlaceType(next);
+                        if (next === 'AREA') setParentPlaceId('');
+                        if (next !== 'LODGING') setAccommodationId('');
+                      }}
+                    >
                       {typeOptions.map((value) => (
                         <option key={value} value={value}>
                           {PLACE_TYPE_LABEL[value]}
@@ -364,31 +388,37 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 </div>
               </Section>
 
-              <Section n={2} title="상위 장소">
-                <DatasetField label="바로 위 장소">
-                  <select
-                    className={datasetControlClass}
-                    value={parentPlaceId}
-                    onChange={(event) => setParentPlaceId(event.target.value)}
-                  >
-                    <option value="">선택 안 함</option>
-                    {places
-                      .filter((row) => !blockedParentIds.has(row.id))
-                      .map((row) => (
-                        <option key={row.id} value={row.id}>
-                          {row.name} · {row.code}
-                        </option>
-                      ))}
-                  </select>
-                </DatasetField>
-                <p className="text-xs text-[#8B83B8]">분류 경로 · {regionPath || '상위 장소를 선택하면 국가·권역을 참조합니다.'}</p>
+              <Section n={2} title={isArea ? '분류' : '상위 장소'}>
+                {isArea ? (
+                  <p className="text-xs text-[#8B83B8]">목적지는 상위 장소 없이 국가·권역만 가집니다. 다른 장소가 이 목적지를 상위로 둘 수 있습니다.</p>
+                ) : (
+                  <>
+                    <DatasetField label="바로 위 장소">
+                      <select
+                        className={datasetControlClass}
+                        value={parentPlaceId}
+                        onChange={(event) => setParentPlaceId(event.target.value)}
+                      >
+                        <option value="">선택 안 함</option>
+                        {places
+                          .filter((row) => !blockedParentIds.has(row.id))
+                          .map((row) => (
+                            <option key={row.id} value={row.id}>
+                              {row.name} · {row.code}
+                            </option>
+                          ))}
+                      </select>
+                    </DatasetField>
+                    <p className="text-xs text-[#8B83B8]">분류 경로 · {regionPath || '상위 장소를 선택하면 국가·권역을 참조합니다.'}</p>
+                  </>
+                )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DatasetField label="국가">
                     <Input
                       className={datasetControlClass}
                       value={country}
                       onChange={(event) => setCountry(event.target.value)}
-                      disabled={Boolean(parentPlace)}
+                      disabled={!isArea && Boolean(parentPlace)}
                     />
                   </DatasetField>
                   <DatasetField label="권역">
@@ -396,7 +426,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                       className={datasetControlClass}
                       value={regionId}
                       onChange={(event) => setRegionId(event.target.value)}
-                      disabled={Boolean(parentPlace?.regionId)}
+                      disabled={!isArea && Boolean(parentPlace?.regionId)}
                     >
                       <option value="">선택 안 함</option>
                       {regions.map((row) => (
@@ -407,9 +437,11 @@ export function DatasetPlaceFormPage(): JSX.Element {
                     </select>
                   </DatasetField>
                 </div>
-                <p className="text-xs text-[#8B83B8]">상위 장소의 좌표는 새 지점의 좌표로 복사하지 않습니다.</p>
+                {isArea ? null : <p className="text-xs text-[#8B83B8]">상위 장소의 좌표는 새 지점의 좌표로 복사하지 않습니다.</p>}
               </Section>
 
+              {isLodging ? (
+                <>
               <Section
                 n={3}
                 title="연결 숙소"
@@ -445,7 +477,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                     <p className="text-sm text-slate-500">
                       {parentPlace?.accommodationId
                         ? '상위 장소의 숙소 연결을 따릅니다.'
-                        : '기존 숙소를 선택합니다. 새 숙소는 여기서 만들지 않습니다.'}
+                        : '객실·요금 원본인 기존 숙소를 선택합니다. 새 숙소는 여기서 만들지 않습니다.'}
                     </p>
                   )}
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -502,6 +534,8 @@ export function DatasetPlaceFormPage(): JSX.Element {
                   <p className="text-xs text-[#8B83B8]">새 지점은 저장 후 이 목록에 추가됩니다. 기존 대표 위치를 바꾸지 않습니다.</p>
                 </Section>
               )}
+                </>
+              ) : null}
             </div>
 
             <div className="grid gap-4">
@@ -630,14 +664,18 @@ export function DatasetPlaceFormPage(): JSX.Element {
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-slate-500">상위 관계</dt>
-                    <dd className="text-right text-slate-800">{parentPlace ? `${parentPlace.name} · ${parentPlace.code}` : '없음'}</dd>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-slate-500">숙소 연결</dt>
                     <dd className="text-right text-slate-800">
-                      {accommodation ? `${accommodation.name} · ${LODGING_ROLES.find((row) => row.id === lodgingRole)?.label}` : '연결 안 함'}
+                      {isArea ? '없음 · 목적지' : parentPlace ? `${parentPlace.name} · ${parentPlace.code}` : '없음'}
                     </dd>
                   </div>
+                  {isLodging ? (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-slate-500">숙소 원본</dt>
+                      <dd className="text-right text-slate-800">
+                        {accommodation ? `${accommodation.name} · ${LODGING_ROLES.find((row) => row.id === lodgingRole)?.label}` : '연결 안 함'}
+                      </dd>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between gap-3">
                     <dt className="text-slate-500">좌표</dt>
                     <dd className="text-right text-slate-800">{latitude != null && longitude != null ? '지정 가능' : '미등록 · 저장 가능'}</dd>
@@ -656,7 +694,13 @@ export function DatasetPlaceFormPage(): JSX.Element {
         {!isEdit || hydrated ? (
         <div className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3 xl:sticky xl:bottom-3 ${datasetTheme.card}`}>
           <p className="text-sm text-slate-600">
-            {isEdit ? '현재 장소 원본을 저장합니다.' : '새 장소 1개 등록 · 상위·숙소 연결은 선택한 값만 반영합니다.'}
+            {isEdit
+              ? '현재 장소 원본을 저장합니다.'
+              : isArea
+                ? '새 목적지 1개 등록 · 상위 장소 없이 국가·권역만 저장합니다.'
+                : isLodging
+                  ? '새 숙소 장소 1개 등록 · 객실·요금 원본만 연결합니다.'
+                  : '새 장소 1개 등록 · 상위 장소만 반영하고 숙소 원본은 연결하지 않습니다.'}
           </p>
           <div className="flex flex-wrap gap-2">
             <DatasetButton type="button" variant="outline" onClick={leaveToList}>

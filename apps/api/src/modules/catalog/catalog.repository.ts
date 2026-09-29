@@ -162,7 +162,7 @@ export class CatalogRepository {
         longitude: data.longitude ?? null,
         displayName: data.displayName ?? null,
         internalNote: data.internalNote ?? null,
-        accommodationId: data.accommodationId ?? null,
+        accommodationId: data.placeType === 'LODGING' ? (data.accommodationId ?? null) : null,
         visitRadiusM: data.visitRadiusM ?? null,
         status: data.status ?? 'ACTIVE',
         sortOrder: count + 100,
@@ -184,7 +184,11 @@ export class CatalogRepository {
         ...(data.longitude !== undefined ? { longitude: data.longitude } : {}),
         ...(data.displayName !== undefined ? { displayName: data.displayName } : {}),
         ...(data.internalNote !== undefined ? { internalNote: data.internalNote } : {}),
-        ...(data.accommodationId !== undefined ? { accommodationId: data.accommodationId } : {}),
+        ...(data.placeType != null && data.placeType !== 'LODGING'
+          ? { accommodationId: null }
+          : data.accommodationId !== undefined
+            ? { accommodationId: data.accommodationId }
+            : {}),
         ...(data.visitRadiusM !== undefined ? { visitRadiusM: data.visitRadiusM } : {}),
         ...(data.status != null ? { status: data.status } : {}),
       },

@@ -1,5 +1,5 @@
 import { Table, Td, Th } from '@tour/ui';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAccommodation } from '../../features/accommodation/hooks';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import {
@@ -108,9 +108,15 @@ export function DatasetPlaceDetailPanel({
 }: DatasetPlaceDetailPanelProps): JSX.Element {
   const [tab, setTab] = useState<DetailTab>('overview');
   const [stubMessage, setStubMessage] = useState<string | null>(null);
-  const { accommodation, loading: accommodationLoading } = useAccommodation(place.accommodationId ?? undefined);
+  const { accommodation, loading: accommodationLoading } = useAccommodation(
+    place.placeType === 'LODGING' ? (place.accommodationId ?? undefined) : undefined,
+  );
   const isLodging = place.placeType === 'LODGING';
   const hasCoords = place.latitude != null && place.longitude != null;
+
+  useEffect(() => {
+    if (!isLodging && (tab === 'rooms' || tab === 'rates')) setTab('overview');
+  }, [isLodging, tab]);
 
   const relatedGates = useMemo(
     () => places.filter((row) => row.placeType === 'GATE' && row.parentPlaceId === place.id),
@@ -181,14 +187,23 @@ export function DatasetPlaceDetailPanel({
             <div className="mt-4">
               <DatasetTabs
                 size="sm"
-                items={[
-                  { id: 'overview', label: '개요' },
-                  { id: 'rooms', label: '객실' },
-                  { id: 'rates', label: '요금' },
-                  { id: 'usage', label: '이용기록' },
-                  { id: 'reviews', label: '리뷰' },
-                  { id: 'history', label: '변경이력' },
-                ]}
+                items={
+                  isLodging
+                    ? [
+                        { id: 'overview', label: '개요' },
+                        { id: 'rooms', label: '객실' },
+                        { id: 'rates', label: '요금' },
+                        { id: 'usage', label: '이용기록' },
+                        { id: 'reviews', label: '리뷰' },
+                        { id: 'history', label: '변경이력' },
+                      ]
+                    : [
+                        { id: 'overview', label: '개요' },
+                        { id: 'usage', label: '이용기록' },
+                        { id: 'reviews', label: '리뷰' },
+                        { id: 'history', label: '변경이력' },
+                      ]
+                }
                 activeId={tab}
                 onChange={(id) => setTab(id as DetailTab)}
               />
@@ -367,10 +382,9 @@ export function DatasetPlaceDetailPanel({
                   </DatasetCard>
                 ) : (
                   <DatasetCard>
-                    <SectionHeader title="연결 · 요약" />
-                    <dl className="grid gap-4 px-4 py-4 sm:grid-cols-3">
-                      <InfoRow label="연결정보">{place.linkLabel ?? '연결 없음'}</InfoRow>
-                      <InfoRow label="요금 요약">{place.rateSummary ?? '-'}</InfoRow>
+                    <SectionHeader title="위치 · 요약" />
+                    <dl className="grid gap-4 px-4 py-4 sm:grid-cols-2">
+                      <InfoRow label="상위 장소">{place.parentPlace?.name ?? '없음'}</InfoRow>
                       <InfoRow label="좌표">
                         {hasCoords ? `${place.latitude}, ${place.longitude}` : '미등록'}
                       </InfoRow>
@@ -393,14 +407,14 @@ export function DatasetPlaceDetailPanel({
               </>
             ) : null}
 
-            {tab === 'rooms' ? <StubTabBody label="객실" /> : null}
-            {tab === 'rates' ? <StubTabBody label="요금" /> : null}
+            {isLodging && tab === 'rooms' ? <StubTabBody label="객실" /> : null}
+            {isLodging && tab === 'rates' ? <StubTabBody label="요금" /> : null}
             {tab === 'usage' ? <StubTabBody label="이용기록" /> : null}
             {tab === 'reviews' ? <StubTabBody label="리뷰" /> : null}
             {tab === 'history' ? <StubTabBody label="변경이력" /> : null}
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-              <DatasetPageFooter screenId="T01-02 · 숙소 상세" />
+              <DatasetPageFooter screenId={isLodging ? 'T01-02 · 숙소 상세' : `T01-02 · ${PLACE_TYPE_LABEL[place.placeType]} 상세`} />
               <DatasetButton type="button" variant="primary" onClick={onClose}>
                 목록으로 돌아가기
               </DatasetButton>

@@ -178,9 +178,9 @@ export function DatasetPlacesPage(): JSX.Element {
 
   const showStub = (message: string) => setStubMessage(message);
 
-  const goToCreatePlace = () => {
-    const nextType = placeType !== 'ALL' && placeType !== 'AREA' ? placeType : undefined;
-    const nextParentId = parentPlaceId !== 'ALL' ? parentPlaceId : undefined;
+  const goToCreatePlace = (type?: CatalogPlaceType) => {
+    const nextType = type ?? (placeType !== 'ALL' ? placeType : undefined);
+    const nextParentId = nextType === 'AREA' || parentPlaceId === 'ALL' ? undefined : parentPlaceId;
     navigate(placeCreatePath({ type: nextType, parentId: nextParentId }));
   };
 
@@ -412,6 +412,9 @@ export function DatasetPlacesPage(): JSX.Element {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <DatasetButton type="button" variant="outline" onClick={() => goToCreatePlace('AREA')}>
+                    + 목적지 등록
+                  </DatasetButton>
                   <DatasetButton type="button" variant="primary" onClick={() => goToCreatePlace()}>
                     + 장소 등록
                   </DatasetButton>
@@ -444,7 +447,7 @@ export function DatasetPlacesPage(): JSX.Element {
                         row.latitude != null && row.longitude != null ? '좌표 등록' : '좌표 미등록',
                         row.lodgingLevel,
                         row.placeType === 'LODGING' ? row.rateSummary ?? '요금 미등록' : null,
-                        row.linkLabel ?? '연결 없음',
+                        row.placeType === 'LODGING' ? row.linkLabel ?? (row.accommodation?.name ? `숙소 원본 ${row.accommodation.name}` : '숙소 원본 미연결') : null,
                         STATUS_LABEL[row.status],
                       ].filter((value): value is string => Boolean(value));
                       const selected = viewPlaceId === row.id;
