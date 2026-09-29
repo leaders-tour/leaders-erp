@@ -1,4 +1,4 @@
-import { GoogleMap, OverlayView, OverlayViewF, useJsApiLoader } from '@react-google-maps/api';
+import { CircleF, GoogleMap, OverlayView, OverlayViewF, useJsApiLoader } from '@react-google-maps/api';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import type { CatalogPlaceType } from '../../features/dataset/labels';
@@ -21,6 +21,30 @@ const PIN_COLOR: Record<CatalogPlaceType, string> = {
   GATE: 'bg-violet-500',
   AREA: 'bg-slate-500',
 };
+
+function haversineMeters(from: { lat: number; lng: number }, to: { lat: number; lng: number }): number {
+  const earth = 6371000;
+  const dLat = ((to.lat - from.lat) * Math.PI) / 180;
+  const dLng = ((to.lng - from.lng) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((from.lat * Math.PI) / 180) * Math.cos((to.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * earth * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+function regionCoverage(rows: CatalogPlaceRow[]): { center: { lat: number; lng: number }; radiusM: number } | null {
+  const coords = rows.filter((row) => row.latitude != null && row.longitude != null);
+  if (coords.length === 0) return null;
+  const center = {
+    lat: coords.reduce((sum, row) => sum + (row.latitude as number), 0) / coords.length,
+    lng: coords.reduce((sum, row) => sum + (row.longitude as number), 0) / coords.length,
+  };
+  let radiusM = 6000;
+  for (const row of coords) {
+    radiusM = Math.max(radiusM, haversineMeters(center, { lat: row.latitude as number, lng: row.longitude as number }) * 1.35);
+  }
+  return { center, radiusM };
+}
 
 function fitMapToPlaces(map: google.maps.Map, rows: CatalogPlaceRow[]): void {
   const coords = rows.filter((row) => row.latitude != null && row.longitude != null);
@@ -124,9 +148,21 @@ interface DatasetPlaceMapProps {
   places: CatalogPlaceRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  regionOverlay?: { name: string; code: string } | null;
+  showPlaceMarkers?: boolean;
+  fitToCollection?: boolean;
+  fitNonce?: number;
 }
 
-export function DatasetPlaceMap({ places, selectedId, onSelect }: DatasetPlaceMapProps): JSX.Element {
+export function DatasetPlaceMap({
+  places,
+  selectedId,
+  onSelect,
+  regionOverlay = null,
+  showPlaceMarkers = true,
+  fitToCollection = false,
+  fitNonce = 0,
+}: DatasetPlaceMapProps): JSX.Element {
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'catalog-place-map-ko',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
@@ -158,19 +194,22 @@ export function DatasetPlaceMap({ places, selectedId, onSelect }: DatasetPlaceMa
     setCardOffsets(layoutPlaceCards(map, markersRef.current, selectedIdRef.current));
   }, []);
 
+  const coverage = useMemo(() => (regionOverlay ? regionCoverage(markers) : null), [markers, regionOverlay]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || markers.length === 0) return;
     fitMapToPlaces(map, markers);
-  }, [markers]);
+  }, [fitNonce, fitToCollection, markers]);
 
   useEffect(() => {
+    if (fitToCollection) return;
     const map = mapRef.current;
     if (!map || !selectedId) return;
     const selected = markersRef.current.find((row) => row.id === selectedId);
     if (!selected) return;
     fitMapToPlaces(map, [selected]);
-  }, [selectedId]);
+  }, [fitToCollection, selectedId]);
 
   useEffect(() => {
     refreshCardLayout();
@@ -178,7 +217,7 @@ export function DatasetPlaceMap({ places, selectedId, onSelect }: DatasetPlaceMa
 
   const selectPlace = (row: CatalogPlaceRow) => {
     const map = mapRef.current;
-    if (map) fitMapToPlaces(map, [row]);
+    if (map && !fitToCollection) fitMapToPlaces(map, [row]);
     onSelect(row.id);
   };
 
@@ -210,7 +249,7 @@ export function DatasetPlaceMap({ places, selectedId, onSelect }: DatasetPlaceMa
       zoom={10}
       onLoad={(map) => {
         mapRef.current = map;
-        if (selectedId) {
+        if (!fitToCollection && selectedId) {
           fitMapToPlaces(map, markers.filter((row) => row.id === selectedId));
         } else {
           fitMapToPlaces(map, markers);
@@ -224,41 +263,69 @@ export function DatasetPlaceMap({ places, selectedId, onSelect }: DatasetPlaceMa
         styles: MAP_STYLES,
       }}
     >
-      {markers.map((row) => {
-        const selected = selectedId === row.id;
-        const offset = cardOffsets[row.id] ?? { dx: CARD_GAP + 6, dy: -CARD_HEIGHT / 2 };
-        return (
-          <OverlayViewF
-            key={row.id}
-            position={{ lat: row.latitude as number, lng: row.longitude as number }}
-            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-          >
-            <div className="relative h-0 w-0">
-              <button
-                type="button"
-                className={`absolute left-0 top-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-sm ${PIN_COLOR[row.placeType]} ${
-                  selected ? 'h-3.5 w-3.5 ring-2 ring-white ring-offset-2 ring-offset-emerald-700' : 'h-3 w-3'
-                }`}
-                onClick={() => selectPlace(row)}
-                aria-label={row.name}
-              />
-              {showCards ? (
-                <button
-                  type="button"
-                  className={`absolute z-20 whitespace-nowrap rounded-md border bg-white px-2 py-1 text-left shadow-sm ${
-                    selected ? 'border-[#5B4BD6] ring-1 ring-[#5B4BD6]/20' : 'border-slate-200'
-                  }`}
-                  style={{ left: offset.dx, top: offset.dy }}
-                  onClick={() => selectPlace(row)}
-                >
-                  <span className="block text-[11px] font-medium leading-tight text-slate-800">{row.name}</span>
-                  <span className="block text-[10px] leading-tight text-slate-400">{row.code}</span>
-                </button>
-              ) : null}
+      {coverage ? (
+        <CircleF
+          center={coverage.center}
+          radius={coverage.radiusM}
+          options={{
+            clickable: false,
+            fillColor: '#E8D9A8',
+            fillOpacity: 0.28,
+            strokeColor: '#C9B57A',
+            strokeOpacity: 0.7,
+            strokeWeight: 1,
+          }}
+        />
+      ) : null}
+      {coverage && regionOverlay ? (
+        <OverlayViewF position={coverage.center} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
+          <div className="relative h-0 w-0">
+            <div className="absolute left-0 top-0 -translate-x-1/2 -translate-y-[120%] whitespace-nowrap rounded-xl border border-amber-200 bg-[#FFF8E8] px-3 py-2 shadow-sm">
+              <p className="text-xs font-semibold text-slate-800">
+                {regionOverlay.name} · {regionOverlay.code}
+              </p>
+              <p className="mt-0.5 text-[10px] text-slate-500">분류된 장소의 위치 표시 · 경계 미등록</p>
             </div>
-          </OverlayViewF>
-        );
-      })}
+          </div>
+        </OverlayViewF>
+      ) : null}
+      {showPlaceMarkers
+        ? markers.map((row) => {
+            const selected = selectedId === row.id;
+            const offset = cardOffsets[row.id] ?? { dx: CARD_GAP + 6, dy: -CARD_HEIGHT / 2 };
+            return (
+              <OverlayViewF
+                key={row.id}
+                position={{ lat: row.latitude as number, lng: row.longitude as number }}
+                mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+              >
+                <div className="relative h-0 w-0">
+                  <button
+                    type="button"
+                    className={`absolute left-0 top-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-sm ${PIN_COLOR[row.placeType]} ${
+                      selected ? 'h-3.5 w-3.5 ring-2 ring-white ring-offset-2 ring-offset-emerald-700' : 'h-3 w-3'
+                    }`}
+                    onClick={() => selectPlace(row)}
+                    aria-label={row.name}
+                  />
+                  {showCards ? (
+                    <button
+                      type="button"
+                      className={`absolute z-20 whitespace-nowrap rounded-md border bg-white px-2 py-1 text-left shadow-sm ${
+                        selected ? 'border-[#5B4BD6] ring-1 ring-[#5B4BD6]/20' : 'border-slate-200'
+                      }`}
+                      style={{ left: offset.dx, top: offset.dy }}
+                      onClick={() => selectPlace(row)}
+                    >
+                      <span className="block text-[11px] font-medium leading-tight text-slate-800">{row.name}</span>
+                      <span className="block text-[10px] leading-tight text-slate-400">{row.code}</span>
+                    </button>
+                  ) : null}
+                </div>
+              </OverlayViewF>
+            );
+          })
+        : null}
     </GoogleMap>
   );
 }

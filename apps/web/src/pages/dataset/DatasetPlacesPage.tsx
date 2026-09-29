@@ -15,7 +15,6 @@ import {
   useCatalogPlaces,
   useCatalogRegions,
   useCatalogRoutes,
-  useCreateCatalogRegion,
   useCreateCatalogRoute,
 } from '../../features/dataset/hooks';
 import { datasetTheme } from '../../features/dataset/theme';
@@ -34,14 +33,14 @@ import {
 import { DatasetPlaceDetailPanel } from './DatasetPlaceDetailPanel';
 import { DatasetPlaceMap } from './DatasetPlaceMap';
 import { DatasetPlaceSelectionSummary } from './DatasetPlaceSelectionSummary';
+import { DatasetRegionsPanel } from './DatasetRegionsPanel';
 
 type InnerTab = 'regions' | 'places' | 'routes';
-type CreateKind = 'region' | 'route';
+type CreateKind = 'route';
 
 const LIST_PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
 
 const CREATE_LABEL: Record<CreateKind, string> = {
-  region: '지역 등록',
   route: '경로 등록',
 };
 
@@ -74,10 +73,8 @@ export function DatasetPlacesPage(): JSX.Element {
   const [createKind, setCreateKind] = useState<CreateKind | null>(null);
   const [detailPlaceId, setDetailPlaceId] = useState<string | null>(null);
   const [viewPlaceId, setViewPlaceId] = useState<string | null>(null);
+  const [regionCreateNonce, setRegionCreateNonce] = useState(0);
 
-  const [regionNameInput, setRegionNameInput] = useState('');
-  const [regionCountryInput, setRegionCountryInput] = useState('몽골');
-  const [regionDescriptionInput, setRegionDescriptionInput] = useState('');
   const [batchStatus, setBatchStatus] = useState<'ACTIVE' | 'INACTIVE'>('INACTIVE');
   const [batchMessage, setBatchMessage] = useState<string | null>(null);
 
@@ -91,7 +88,6 @@ export function DatasetPlacesPage(): JSX.Element {
   const regionsQuery = useCatalogRegions();
   const placesQuery = useCatalogPlaces();
   const routesQuery = useCatalogRoutes();
-  const [createRegion, createRegionState] = useCreateCatalogRegion();
   const [createRoute, createRouteState] = useCreateCatalogRoute();
   const [batchUpdatePlaces, batchState] = useBatchUpdateCatalogPlaces();
   const logsQuery = useCatalogChangeLogs('PLACE');
@@ -202,31 +198,12 @@ export function DatasetPlacesPage(): JSX.Element {
   };
 
   const resetCreateForms = () => {
-    setRegionNameInput('');
-    setRegionCountryInput('몽골');
-    setRegionDescriptionInput('');
     setRouteNameInput('');
     setRouteFromPlaceId('');
     setRouteToPlaceId('');
     setRouteRegionId('');
     setRouteDistanceKm('');
     setRouteTravelHours('');
-  };
-
-  const handleCreateRegion = async () => {
-    const name = regionNameInput.trim();
-    if (!name) return;
-    await createRegion({
-      variables: {
-        input: {
-          name,
-          country: regionCountryInput.trim() || '몽골',
-          description: regionDescriptionInput.trim() || null,
-        },
-      },
-    });
-    resetCreateForms();
-    closeCreate();
   };
 
   const handleBatchStatus = async () => {
@@ -258,33 +235,46 @@ export function DatasetPlacesPage(): JSX.Element {
     closeCreate();
   };
 
-  const createLoading = createKind === 'region' ? createRegionState.loading : createKind === 'route' ? createRouteState.loading : false;
-  const createDisabled =
-    createKind === 'region'
-      ? !regionNameInput.trim()
-      : createKind === 'route'
-        ? !routeNameInput.trim() || !routeFromPlaceId || !routeToPlaceId
-        : true;
+  const createLoading = createKind === 'route' ? createRouteState.loading : false;
+  const createDisabled = createKind === 'route' ? !routeNameInput.trim() || !routeFromPlaceId || !routeToPlaceId : true;
 
   const primaryCreateLabel =
     innerTab === 'regions' ? '+ 지역 등록' : innerTab === 'routes' ? '+ 경로 등록' : '+ 장소 등록';
+
+  const innerTabs = (
+    <DatasetTabs
+      items={[
+        { id: 'regions', label: '지역 · 권역' },
+        { id: 'places', label: '장소' },
+        { id: 'routes', label: '경로' },
+      ]}
+      activeId={innerTab}
+      onChange={(id) => setInnerTab(id as InnerTab)}
+    />
+  );
 
   return (
     <DatasetPageShell>
       <section className="grid gap-5">
         <DatasetPageHeader
           breadcrumb="일정 데이터 관리 / 장소 · 지역 · 경로"
-          title="장소 · 지역 · 경로"
-          description="장소의 위치와 연결된 정보를 확인하고, 여러 항목을 한 번에 관리합니다."
+          title={innerTab === 'regions' ? '지역 · 권역 관리 · 지도' : '장소 · 지역 · 경로'}
+          description={
+            innerTab === 'regions'
+              ? '지역별로 분류된 같은 장소들을 지도와 목록에서 함께 확인합니다.'
+              : '장소의 위치와 연결된 정보를 확인하고, 여러 항목을 한 번에 관리합니다.'
+          }
           actions={
             <>
               <StubButton label="대량 관리" onStub={() => showStub('대량 관리는 다음 단계에서 구현합니다.')} />
               <DatasetButton
                 type="button"
                 variant="primary"
-                onClick={() =>
-                  innerTab === 'places' ? goToCreatePlace() : openCreate(innerTab === 'regions' ? 'region' : 'route')
-                }
+                onClick={() => {
+                  if (innerTab === 'places') goToCreatePlace();
+                  else if (innerTab === 'regions') setRegionCreateNonce((value) => value + 1);
+                  else openCreate('route');
+                }}
               >
                 {primaryCreateLabel}
               </DatasetButton>
@@ -294,16 +284,9 @@ export function DatasetPlacesPage(): JSX.Element {
 
         {stubMessage ? <DatasetStubNotice message={stubMessage} /> : null}
 
+        {innerTab !== 'regions' ? (
         <DatasetFilterBar>
-          <DatasetTabs
-            items={[
-              { id: 'regions', label: '지역' },
-              { id: 'places', label: '장소' },
-              { id: 'routes', label: '경로' },
-            ]}
-            activeId={innerTab}
-            onChange={(id) => setInnerTab(id as InnerTab)}
-          />
+          {innerTabs}
           {innerTab === 'places' ? (
             <>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
@@ -383,6 +366,7 @@ export function DatasetPlacesPage(): JSX.Element {
             </>
           ) : null}
         </DatasetFilterBar>
+        ) : null}
 
         {innerTab === 'places' ? (
           <>
@@ -517,46 +501,15 @@ export function DatasetPlacesPage(): JSX.Element {
         ) : null}
 
         {innerTab === 'regions' ? (
-          <DatasetCard>
-            <div className="h-[280px] border-b border-slate-100">
-              <DatasetPlaceMap places={listPlaces} selectedId={viewPlaceId} onSelect={setViewPlaceId} />
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">지역 목록</h2>
-                <p className="mt-1 text-xs text-[#8B83B8]">결과 {regions.length}</p>
-              </div>
-              <DatasetButton type="button" variant="primary" onClick={() => openCreate('region')}>
-                + 지역 등록
-              </DatasetButton>
-            </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <thead>
-                  <tr className="bg-slate-50">
-                    <Th>코드</Th>
-                    <Th>지역명</Th>
-                    <Th>국가</Th>
-                    <Th>설명</Th>
-                    <Th>상태</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {regions.map((row) => (
-                    <tr key={row.id} className="border-t border-slate-100 hover:bg-slate-50">
-                      <Td>{row.code}</Td>
-                      <Td>{row.name}</Td>
-                      <Td>{row.country}</Td>
-                      <Td>{row.description ?? '-'}</Td>
-                      <Td>
-                        <StatusBadge status={row.status} />
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
-          </DatasetCard>
+          <DatasetRegionsPanel
+            regions={regions}
+            places={places}
+            selectedPlaceId={viewPlaceId}
+            onSelectPlace={setViewPlaceId}
+            onStub={showStub}
+            tabs={innerTabs}
+            createNonce={regionCreateNonce}
+          />
         ) : null}
 
         {innerTab === 'routes' ? (
@@ -614,114 +567,77 @@ export function DatasetPlacesPage(): JSX.Element {
             <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
               <div className={`w-full max-w-md p-6 shadow-2xl ${datasetTheme.card}`} role="dialog">
                 <h2 className="text-lg font-semibold text-slate-900">{CREATE_LABEL[createKind]}</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  {createKind === 'region'
-                    ? '지역명과 국가를 저장합니다. 중부·고비 같은 넓은 분류입니다.'
-                    : '경로명과 출발/도착 장소를 저장합니다.'}
-                </p>
+                <p className="mt-1 text-sm text-slate-500">경로명과 출발/도착 장소를 저장합니다.</p>
 
                 <div className="mt-4 grid gap-3">
-                  {createKind === 'region' ? (
-                    <>
-                      <DatasetField label="지역명">
-                        <Input
-                          className={datasetControlClass}
-                          value={regionNameInput}
-                          onChange={(event) => setRegionNameInput(event.target.value)}
-                          placeholder="예: 고비사막"
-                        />
-                      </DatasetField>
-                      <DatasetField label="국가">
-                        <Input
-                          className={datasetControlClass}
-                          value={regionCountryInput}
-                          onChange={(event) => setRegionCountryInput(event.target.value)}
-                          placeholder="몽골"
-                        />
-                      </DatasetField>
-                      <DatasetField label="설명">
-                        <Input
-                          className={datasetControlClass}
-                          value={regionDescriptionInput}
-                          onChange={(event) => setRegionDescriptionInput(event.target.value)}
-                          placeholder="선택 입력"
-                        />
-                      </DatasetField>
-                    </>
-                  ) : null}
-
-                  {createKind === 'route' ? (
-                    <>
-                      <DatasetField label="경로명">
-                        <Input
-                          className={datasetControlClass}
-                          value={routeNameInput}
-                          onChange={(event) => setRouteNameInput(event.target.value)}
-                          placeholder="예: 울란바토르 → 미니사막"
-                        />
-                      </DatasetField>
-                      <DatasetField label="출발 장소">
-                        <select
-                          className={datasetControlClass}
-                          value={routeFromPlaceId}
-                          onChange={(event) => setRouteFromPlaceId(event.target.value)}
-                        >
-                          <option value="">선택</option>
-                          {routePlaceOptions.map((row) => (
-                            <option key={row.id} value={row.id}>
-                              {row.name} ({row.code})
-                            </option>
-                          ))}
-                        </select>
-                      </DatasetField>
-                      <DatasetField label="도착 장소">
-                        <select
-                          className={datasetControlClass}
-                          value={routeToPlaceId}
-                          onChange={(event) => setRouteToPlaceId(event.target.value)}
-                        >
-                          <option value="">선택</option>
-                          {routePlaceOptions.map((row) => (
-                            <option key={row.id} value={row.id}>
-                              {row.name} ({row.code})
-                            </option>
-                          ))}
-                        </select>
-                      </DatasetField>
-                      <DatasetField label="권역">
-                        <select
-                          className={datasetControlClass}
-                          value={routeRegionId}
-                          onChange={(event) => setRouteRegionId(event.target.value)}
-                        >
-                          <option value="">선택 안 함</option>
-                          {regions.map((row) => (
-                            <option key={row.id} value={row.id}>
-                              {row.name}
-                            </option>
-                          ))}
-                        </select>
-                      </DatasetField>
-                      <div className="grid grid-cols-2 gap-3">
-                        <DatasetField label="평균 거리(km)">
-                          <Input
-                            className={datasetControlClass}
-                            value={routeDistanceKm}
-                            onChange={(event) => setRouteDistanceKm(event.target.value)}
-                            placeholder="240"
-                          />
-                        </DatasetField>
-                        <DatasetField label="평균 시간(시간)">
-                          <Input
-                            className={datasetControlClass}
-                            value={routeTravelHours}
-                            onChange={(event) => setRouteTravelHours(event.target.value)}
-                            placeholder="4"
-                          />
-                        </DatasetField>
-                      </div>
-                    </>
-                  ) : null}
+                  <DatasetField label="경로명">
+                    <Input
+                      className={datasetControlClass}
+                      value={routeNameInput}
+                      onChange={(event) => setRouteNameInput(event.target.value)}
+                      placeholder="예: 울란바토르 → 미니사막"
+                    />
+                  </DatasetField>
+                  <DatasetField label="출발 장소">
+                    <select
+                      className={datasetControlClass}
+                      value={routeFromPlaceId}
+                      onChange={(event) => setRouteFromPlaceId(event.target.value)}
+                    >
+                      <option value="">선택</option>
+                      {routePlaceOptions.map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.name} ({row.code})
+                        </option>
+                      ))}
+                    </select>
+                  </DatasetField>
+                  <DatasetField label="도착 장소">
+                    <select
+                      className={datasetControlClass}
+                      value={routeToPlaceId}
+                      onChange={(event) => setRouteToPlaceId(event.target.value)}
+                    >
+                      <option value="">선택</option>
+                      {routePlaceOptions.map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.name} ({row.code})
+                        </option>
+                      ))}
+                    </select>
+                  </DatasetField>
+                  <DatasetField label="권역">
+                    <select
+                      className={datasetControlClass}
+                      value={routeRegionId}
+                      onChange={(event) => setRouteRegionId(event.target.value)}
+                    >
+                      <option value="">선택 안 함</option>
+                      {regions.map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.name}
+                        </option>
+                      ))}
+                    </select>
+                  </DatasetField>
+                  <div className="grid grid-cols-2 gap-3">
+                    <DatasetField label="평균 거리(km)">
+                      <Input
+                        className={datasetControlClass}
+                        value={routeDistanceKm}
+                        onChange={(event) => setRouteDistanceKm(event.target.value)}
+                        placeholder="240"
+                      />
+                    </DatasetField>
+                    <DatasetField label="평균 시간(시간)">
+                      <Input
+                        className={datasetControlClass}
+                        value={routeTravelHours}
+                        onChange={(event) => setRouteTravelHours(event.target.value)}
+                        placeholder="4"
+                      />
+                    </DatasetField>
+                  </div>
                 </div>
 
                 <div className="mt-6 flex justify-end gap-2">
@@ -732,10 +648,7 @@ export function DatasetPlacesPage(): JSX.Element {
                     type="button"
                     variant="primary"
                     disabled={createDisabled || createLoading}
-                    onClick={() => {
-                      if (createKind === 'region') void handleCreateRegion();
-                      else void handleCreateRoute();
-                    }}
+                    onClick={() => void handleCreateRoute()}
                   >
                     {createLoading ? '저장 중…' : '등록'}
                   </DatasetButton>
@@ -755,24 +668,28 @@ export function DatasetPlacesPage(): JSX.Element {
           />
         ) : null}
 
-        <DatasetCard>
-          <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold">변경 이력</h2>
-            <p className="mt-1 text-xs text-[#8B83B8]">최근 장소 작업 · 영구삭제는 D06 이후</p>
-          </div>
-          <ul className="grid gap-2 px-4 py-3 text-sm">
-            {(logsQuery.data?.catalogChangeLogs ?? []).slice(0, 8).map((row) => (
-              <li key={row.id} className="text-slate-600">
-                {row.action} · {row.summary}
-              </li>
-            ))}
-            {(logsQuery.data?.catalogChangeLogs ?? []).length === 0 ? (
-              <li className="text-slate-400">아직 기록이 없습니다.</li>
-            ) : null}
-          </ul>
-        </DatasetCard>
+        {innerTab !== 'regions' ? (
+          <DatasetCard>
+            <div className="border-b border-slate-100 px-4 py-3">
+              <h2 className="text-sm font-semibold">변경 이력</h2>
+              <p className="mt-1 text-xs text-[#8B83B8]">최근 장소 작업 · 영구삭제는 D06 이후</p>
+            </div>
+            <ul className="grid gap-2 px-4 py-3 text-sm">
+              {(logsQuery.data?.catalogChangeLogs ?? []).slice(0, 8).map((row) => (
+                <li key={row.id} className="text-slate-600">
+                  {row.action} · {row.summary}
+                </li>
+              ))}
+              {(logsQuery.data?.catalogChangeLogs ?? []).length === 0 ? (
+                <li className="text-slate-400">아직 기록이 없습니다.</li>
+              ) : null}
+            </ul>
+          </DatasetCard>
+        ) : null}
 
-        <DatasetPageFooter screenId="T01-01 · 장소 목록" />
+        <DatasetPageFooter
+          screenId={innerTab === 'regions' ? 'T01-04 · 지도 품질 우선안' : innerTab === 'routes' ? 'T01-05 · 경로 목록' : 'T01-01 · 장소 목록'}
+        />
       </section>
     </DatasetPageShell>
   );
