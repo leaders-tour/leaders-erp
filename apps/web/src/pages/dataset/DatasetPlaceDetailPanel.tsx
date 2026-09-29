@@ -18,6 +18,7 @@ interface DatasetPlaceDetailPanelProps {
   place: CatalogPlaceRow;
   places: CatalogPlaceRow[];
   onClose: () => void;
+  onEdit: () => void;
   onStub: (message: string) => void;
 }
 
@@ -102,6 +103,7 @@ export function DatasetPlaceDetailPanel({
   place,
   places,
   onClose,
+  onEdit,
   onStub,
 }: DatasetPlaceDetailPanelProps): JSX.Element {
   const [tab, setTab] = useState<DetailTab>('overview');
@@ -203,11 +205,9 @@ export function DatasetPlaceDetailPanel({
                     <SectionHeader
                       title="기본정보"
                       actions={
-                        <StubButton
-                          label="정보 수정"
-                          variant="soft"
-                          onStub={() => notifyStub('정보 수정은 다음 단계에서 구현합니다.')}
-                        />
+                        <DatasetButton type="button" variant="soft" onClick={onEdit}>
+                          정보 수정
+                        </DatasetButton>
                       }
                     />
                     <dl className="grid gap-4 px-4 py-4 sm:grid-cols-2">
@@ -231,11 +231,9 @@ export function DatasetPlaceDetailPanel({
                       title="위치 · 출입 지점"
                       actions={
                         <>
-                          <StubButton
-                            label="위치 관리"
-                            variant="soft"
-                            onStub={() => notifyStub('위치 관리는 다음 단계에서 구현합니다.')}
-                          />
+                          <DatasetButton type="button" variant="soft" onClick={onEdit}>
+                            위치 관리
+                          </DatasetButton>
                           {hasCoords ? (
                             <DatasetButton
                               type="button"

@@ -67,6 +67,7 @@ import {
 import { SpecialMealDestinationRulesPage } from '../pages/SpecialMealDestinationRulesPage';
 import { TodoListPage } from '../pages/TodoListPage';
 import { DatasetPlacesPage } from '../pages/dataset/DatasetPlacesPage';
+import { DatasetPlaceFormPage } from '../pages/dataset/DatasetPlaceFormPage';
 import { DatasetElementsPage } from '../pages/dataset/DatasetElementsPage';
 import { DatasetBlocksPage } from '../pages/dataset/DatasetBlocksPage';
 import { DatasetTemplatesPage } from '../pages/dataset/DatasetTemplatesPage';
@@ -175,6 +176,14 @@ export const router = createBrowserRouter([
       {
         path: 'dataset/places',
         element: <RequireStaffOrAbove><DatasetPlacesPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'dataset/places/new',
+        element: <RequireStaffOrAbove><DatasetPlaceFormPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'dataset/places/:placeId/edit',
+        element: <RequireStaffOrAbove><DatasetPlaceFormPage /></RequireStaffOrAbove>,
       },
       {
         path: 'dataset/elements',
