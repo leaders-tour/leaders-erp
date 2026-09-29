@@ -5,6 +5,27 @@ import { GOOGLE_MAPS_API_KEY } from '../../lib/google-maps-api-key';
 
 const DEFAULT_CENTER = { lat: 47.8512, lng: 106.912 };
 const CONTAINER_STYLE = { width: '100%', height: '100%' };
+const MAX_SINGLE_PLACE_ZOOM = 16;
+
+function fitMapToPlaces(map: google.maps.Map, rows: CatalogPlaceRow[]): void {
+  const coords = rows.filter((row) => row.latitude != null && row.longitude != null);
+  if (coords.length === 0 || typeof google === 'undefined') return;
+
+  const bounds = new google.maps.LatLngBounds();
+  for (const row of coords) {
+    bounds.extend({ lat: row.latitude as number, lng: row.longitude as number });
+  }
+  map.fitBounds(bounds, coords.length === 1 ? 80 : 48);
+
+  if (coords.length === 1) {
+    google.maps.event.addListenerOnce(map, 'idle', () => {
+      const zoom = map.getZoom();
+      if (zoom != null && zoom > MAX_SINGLE_PLACE_ZOOM) {
+        map.setZoom(MAX_SINGLE_PLACE_ZOOM);
+      }
+    });
+  }
+}
 
 interface DatasetPlaceMapProps {
   places: CatalogPlaceRow[];
@@ -14,25 +35,33 @@ interface DatasetPlaceMapProps {
 
 export function DatasetPlaceMap({ places, selectedId, onSelect }: DatasetPlaceMapProps): JSX.Element {
   const { isLoaded, loadError } = useJsApiLoader({
-    id: 'catalog-place-map',
+    id: 'catalog-place-map-ko',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    language: 'ko',
+    region: 'KR',
   });
   const mapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<CatalogPlaceRow[]>([]);
 
   const markers = useMemo(
     () => places.filter((row) => row.latitude != null && row.longitude != null),
     [places],
   );
+  markersRef.current = markers;
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || markers.length === 0 || typeof google === 'undefined') return;
-    const bounds = new google.maps.LatLngBounds();
-    for (const row of markers) {
-      bounds.extend({ lat: row.latitude as number, lng: row.longitude as number });
-    }
-    map.fitBounds(bounds, 48);
+    if (!map || markers.length === 0) return;
+    fitMapToPlaces(map, markers);
   }, [markers]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !selectedId) return;
+    const selected = markersRef.current.find((row) => row.id === selectedId);
+    if (!selected) return;
+    fitMapToPlaces(map, [selected]);
+  }, [selectedId]);
 
   if (!GOOGLE_MAPS_API_KEY) {
     return (
@@ -60,6 +89,11 @@ export function DatasetPlaceMap({ places, selectedId, onSelect }: DatasetPlaceMa
       zoom={10}
       onLoad={(map) => {
         mapRef.current = map;
+        if (selectedId) {
+          fitMapToPlaces(map, markers.filter((row) => row.id === selectedId));
+        } else {
+          fitMapToPlaces(map, markers);
+        }
       }}
       options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false }}
     >
@@ -69,7 +103,11 @@ export function DatasetPlaceMap({ places, selectedId, onSelect }: DatasetPlaceMa
           position={{ lat: row.latitude as number, lng: row.longitude as number }}
           title={row.name}
           opacity={selectedId && selectedId !== row.id ? 0.55 : 1}
-          onClick={() => onSelect(row.id)}
+          onClick={() => {
+            const map = mapRef.current;
+            if (map) fitMapToPlaces(map, [row]);
+            onSelect(row.id);
+          }}
         />
       ))}
     </GoogleMap>

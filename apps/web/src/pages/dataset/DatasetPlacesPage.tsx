@@ -3,10 +3,9 @@ import { useMemo, useState } from 'react';
 import {
   DatasetPageFooter,
   DatasetStubNotice,
-  MapLink,
   PLACE_TYPE_LABEL,
+  STATUS_LABEL,
   StatusBadge,
-  TypePill,
   type CatalogPlaceType,
 } from '../../features/dataset/labels';
 import {
@@ -36,6 +35,7 @@ import {
 } from '../../features/dataset/ui';
 import { DatasetPlaceDetailPanel } from './DatasetPlaceDetailPanel';
 import { DatasetPlaceMap } from './DatasetPlaceMap';
+import { DatasetPlaceSelectionSummary } from './DatasetPlaceSelectionSummary';
 
 type InnerTab = 'regions' | 'places' | 'routes';
 type CreateKind = 'region' | 'place' | 'route';
@@ -60,6 +60,7 @@ export function DatasetPlacesPage(): JSX.Element {
   const [search, setSearch] = useState('');
   const [country, setCountry] = useState('ALL');
   const [regionName, setRegionName] = useState('ALL');
+  const [parentPlaceId, setParentPlaceId] = useState('ALL');
   const [placeType, setPlaceType] = useState<'ALL' | CatalogPlaceType>('ALL');
   const [status, setStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -127,17 +128,22 @@ export function DatasetPlacesPage(): JSX.Element {
       if (placeType !== 'ALL' && row.placeType !== placeType) return false;
       if (country !== 'ALL' && row.country !== country) return false;
       if (regionName !== 'ALL' && row.region?.name !== regionName) return false;
+      if (parentPlaceId !== 'ALL' && row.parentPlaceId !== parentPlaceId) return false;
       if (!keyword) return true;
-      return row.name.toLowerCase().includes(keyword) || row.code.toLowerCase().includes(keyword);
+      return (
+        row.name.toLowerCase().includes(keyword) ||
+        row.code.toLowerCase().includes(keyword) ||
+        (row.parentPlace?.name.toLowerCase().includes(keyword) ?? false)
+      );
     });
-  }, [country, listPlaces, placeType, regionName, search, status]);
+  }, [country, listPlaces, parentPlaceId, placeType, regionName, search, status]);
 
-  const typeCounts = useMemo(() => {
-    const counts: Record<string, number> = { LODGING: 0, EXPERIENCE: 0, MEETING: 0, GATE: 0 };
+  const coordCounts = useMemo(() => {
+    let registered = 0;
     for (const row of filteredPlaces) {
-      counts[row.placeType] = (counts[row.placeType] ?? 0) + 1;
+      if (row.latitude != null && row.longitude != null) registered += 1;
     }
-    return counts;
+    return { registered, missing: filteredPlaces.length - registered };
   }, [filteredPlaces]);
 
   const countries = useMemo(
@@ -151,6 +157,14 @@ export function DatasetPlacesPage(): JSX.Element {
       ),
     [listPlaces],
   );
+  const parentPlaces = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string }>();
+    for (const row of places) {
+      if (row.placeType === 'AREA') byId.set(row.id, { id: row.id, name: row.name });
+      if (row.parentPlace) byId.set(row.parentPlace.id, row.parentPlace);
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  }, [places]);
 
   const routePlaceOptions = useMemo(
     () => [...places].sort((a, b) => a.name.localeCompare(b.name, 'ko')),
@@ -378,6 +392,20 @@ export function DatasetPlacesPage(): JSX.Element {
                     ))}
                   </select>
                 </DatasetField>
+                <DatasetField label="상위 목적지">
+                  <select
+                    className={datasetControlClass}
+                    value={parentPlaceId}
+                    onChange={(event) => setParentPlaceId(event.target.value)}
+                  >
+                    <option value="ALL">전체</option>
+                    {parentPlaces.map((row) => (
+                      <option key={row.id} value={row.id}>
+                        {row.name}
+                      </option>
+                    ))}
+                  </select>
+                </DatasetField>
                 <DatasetField label="장소 유형">
                   <select
                     className={datasetControlClass}
@@ -403,9 +431,6 @@ export function DatasetPlacesPage(): JSX.Element {
                     <option value="INACTIVE">사용 안 함</option>
                   </select>
                 </DatasetField>
-                <div className="flex items-end">
-                  <StubButton label="+ 상세 조건 추가" onStub={() => showStub('상세 조건 필터는 다음 단계에서 연결합니다.')} />
-                </div>
               </div>
               <div className="flex flex-wrap gap-2 text-xs text-[#8B83B8]">
                 <span className={`rounded-full px-2.5 py-1 ${datasetTheme.badgeSoft}`}>숙소 요금 기준일 · UI만</span>
@@ -440,9 +465,9 @@ export function DatasetPlacesPage(): JSX.Element {
             />
             {batchMessage ? <DatasetStubNotice message={batchMessage} /> : null}
 
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-              <DatasetCard className="min-h-[360px]">
-                <div className="border-b border-slate-100 px-4 py-3">
+            <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+              <DatasetCard className="flex flex-col">
+                <div className="shrink-0 border-b border-slate-100 px-4 py-3">
                   <h2 className="text-sm font-semibold text-slate-900">지도</h2>
                   <p className="mt-1 text-xs text-[#8B83B8]">핀 클릭은 조회 선택입니다. 체크와 분리됩니다.</p>
                 </div>
@@ -451,17 +476,15 @@ export function DatasetPlacesPage(): JSX.Element {
                 </div>
               </DatasetCard>
 
-            <DatasetCard>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+            <DatasetCard className="flex h-[calc(360px+4rem)] flex-col overflow-hidden xl:h-[calc(520px+4rem)]">
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                 <div>
                   <h2 className="text-sm font-semibold text-slate-900">장소 목록</h2>
                   <p className="mt-1 text-xs text-[#8B83B8]">
-                    결과 {filteredPlaces.length} · 숙소 {typeCounts.LODGING} · 체험장 {typeCounts.EXPERIENCE} · 미팅{' '}
-                    {typeCounts.MEETING} · 출입 {typeCounts.GATE}
+                    세부 장소 {filteredPlaces.length}개 · 좌표 등록 {coordCounts.registered} / 미등록 {coordCounts.missing}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <StubButton label="컬럼 설정" onStub={() => showStub('컬럼 설정은 다음 단계에서 구현합니다.')} />
                   <DatasetButton type="button" variant="primary" onClick={() => openCreate('place')}>
                     + 장소 등록
                   </DatasetButton>
@@ -469,127 +492,83 @@ export function DatasetPlacesPage(): JSX.Element {
               </div>
 
               {placesQuery.loading ? (
-                <p className="px-4 py-8 text-sm text-slate-500">불러오는 중…</p>
+                <p className="min-h-0 flex-1 overflow-auto px-4 py-8 text-sm text-slate-500">불러오는 중…</p>
               ) : placesQuery.error ? (
-                <p className="px-4 py-8 text-sm text-rose-600">목록을 불러오지 못했습니다. API/마이그레이션을 확인하세요.</p>
+                <p className="min-h-0 flex-1 overflow-auto px-4 py-8 text-sm text-rose-600">목록을 불러오지 못했습니다. API/마이그레이션을 확인하세요.</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <thead>
-                      <tr className="bg-slate-50">
-                        <Th>
-                          <input
-                            type="checkbox"
-                            className={datasetTheme.checkbox}
-                            checked={filteredPlaces.length > 0 && selectedIds.size === filteredPlaces.length}
-                            onChange={toggleAll}
-                            aria-label="전체 선택"
-                          />
-                        </Th>
-                        <Th>장소명</Th>
-                        <Th>유형</Th>
-                        <Th>국가 · 권역</Th>
-                        <Th>상위 목적지 / 장소</Th>
-                        <Th>위치</Th>
-                        <Th>숙소 등급</Th>
-                        <Th>요금 요약</Th>
-                        <Th>연결정보</Th>
-                        <Th>상태</Th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPlaces.map((row) => {
-                        const hasCoords = row.latitude != null && row.longitude != null;
-                        return (
-                          <tr
-                            key={row.id}
-                            className={`cursor-pointer border-t border-slate-100 hover:bg-[#F8F6FF] ${viewPlaceId === row.id ? 'bg-[#F8F6FF]' : ''}`}
+                <div className="min-h-0 flex-1 overflow-auto">
+                  <div className="sticky top-0 z-[1] flex items-center gap-3 border-b border-slate-100 bg-white px-4 py-2.5">
+                    <input
+                      type="checkbox"
+                      className={datasetTheme.checkbox}
+                      checked={filteredPlaces.length > 0 && selectedIds.size === filteredPlaces.length}
+                      onChange={toggleAll}
+                      aria-label="전체 선택"
+                    />
+                    <span className="text-xs text-slate-400">전체 선택</span>
+                  </div>
+                  <ul>
+                    {filteredPlaces.map((row) => {
+                      const meta = [
+                        row.code,
+                        PLACE_TYPE_LABEL[row.placeType],
+                        [row.country, row.region?.name].filter(Boolean).join(' / ') || null,
+                        row.parentPlace?.name,
+                        row.latitude != null && row.longitude != null ? '좌표 등록' : '좌표 미등록',
+                        row.lodgingLevel,
+                        row.placeType === 'LODGING' ? row.rateSummary ?? '요금 미등록' : null,
+                        row.linkLabel ?? '연결 없음',
+                        STATUS_LABEL[row.status],
+                      ].filter((value): value is string => Boolean(value));
+                      const selected = viewPlaceId === row.id;
+                      return (
+                        <li key={row.id}>
+                          <div
+                            className={`flex cursor-pointer items-start gap-3 border-b border-slate-100 px-4 py-3 ${
+                              selected ? 'bg-[#F8F6FF]' : 'bg-white hover:bg-slate-50'
+                            }`}
                             onClick={() => setViewPlaceId(row.id)}
                           >
-                            <Td>
-                              <input
-                                type="checkbox"
-                                className={datasetTheme.checkbox}
-                                checked={selectedIds.has(row.id)}
-                                onChange={() => toggleSelected(row.id)}
-                                onClick={(event) => event.stopPropagation()}
-                                aria-label={`${row.name} 선택`}
-                              />
-                            </Td>
-                            <Td>
+                            <input
+                              type="checkbox"
+                              className={`mt-1 ${datasetTheme.checkbox}`}
+                              checked={selectedIds.has(row.id)}
+                              onChange={() => toggleSelected(row.id)}
+                              onClick={(event) => event.stopPropagation()}
+                              aria-label={`${row.name} 일괄 선택`}
+                            />
+                            <div className="min-w-0">
                               <button
                                 type="button"
-                                className={`text-left font-medium ${datasetTheme.link}`}
+                                className="text-left text-sm font-semibold text-[#5B4BD6] hover:underline"
                                 onClick={(event) => {
                                   event.stopPropagation();
+                                  setViewPlaceId(row.id);
                                   setDetailPlaceId(row.id);
                                 }}
                               >
                                 {row.name}
                               </button>
-                              <div className="text-xs text-[#9A93C2]">{row.code}</div>
-                              <button
-                                type="button"
-                                className="mt-1 text-xs text-[#8B83B8] underline-offset-2 hover:underline"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openEditPlace(row.id);
-                                }}
-                              >
-                                편집
-                              </button>
-                            </Td>
-                            <Td>
-                              <TypePill label={PLACE_TYPE_LABEL[row.placeType]} tone="violet" />
-                            </Td>
-                            <Td>
-                              {row.country} / {row.region?.name ?? '-'}
-                            </Td>
-                            <Td>{row.parentPlace?.name ?? '-'}</Td>
-                            <Td onClick={(event) => event.stopPropagation()}>
-                              {hasCoords ? (
-                                <MapLink href={`https://www.google.com/maps?q=${row.latitude},${row.longitude}`} />
-                              ) : (
-                                <span className="text-amber-600">미등록</span>
-                              )}
-                            </Td>
-                            <Td>{row.lodgingLevel ?? '-'}</Td>
-                            <Td>{row.placeType === 'LODGING' ? row.rateSummary ?? '요금 미등록' : '-'}</Td>
-                            <Td>{row.linkLabel ?? '연결 없음'}</Td>
-                            <Td>
-                              <StatusBadge status={row.status} />
-                            </Td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </Table>
+                              <p className="mt-0.5 text-xs leading-relaxed text-[#9A93C2]">{meta.join(' · ')}</p>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               )}
             </DatasetCard>
             </div>
 
             {viewPlace ? (
-              <DatasetCard>
-                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                  <div>
-                    <p className="text-xs text-[#8B83B8]">선택 장소 · 지도/목록 동기화</p>
-                    <h3 className="text-sm font-semibold text-slate-900">{viewPlace.name}</h3>
-                    <p className="text-xs text-[#9A93C2]">
-                      {viewPlace.code} · {viewPlace.country} / {viewPlace.region?.name ?? '-'} · 좌표{' '}
-                      {viewPlace.latitude != null ? '등록됨' : '미등록'}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <DatasetButton type="button" variant="outline" onClick={() => openEditPlace(viewPlace.id)}>
-                      정보 수정
-                    </DatasetButton>
-                    <DatasetButton type="button" variant="primary" onClick={() => setDetailPlaceId(viewPlace.id)}>
-                      상세 보기
-                    </DatasetButton>
-                  </div>
-                </div>
-              </DatasetCard>
+              <DatasetPlaceSelectionSummary
+                place={viewPlace}
+                places={places}
+                onEdit={() => openEditPlace(viewPlace.id)}
+                onOpenDetail={() => setDetailPlaceId(viewPlace.id)}
+                onStub={showStub}
+              />
             ) : null}
           </>
         ) : null}
