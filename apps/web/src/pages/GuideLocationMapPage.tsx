@@ -254,16 +254,45 @@ function GuideGoogleMap({
         selectedPlaceVisit.description ||
         selectedPlaceVisit.photoUrls.length > 0),
   );
-  const visiblePlaceVisits = focusedGuideId ? placeVisits : [];
+  const visiblePlaceVisits = useMemo(
+    () =>
+      focusedGuideId
+        ? [...placeVisits].sort((left, right) => left.startedAt.localeCompare(right.startedAt))
+        : [],
+    [focusedGuideId, placeVisits],
+  );
 
   const handleMapLoad = useCallback((loadedMap: google.maps.Map) => {
     mapRef.current = loadedMap;
     setMap(loadedMap);
   }, []);
 
+  const focusPlaceVisit = useCallback((visit: GuidePlaceVisitRow) => {
+    setSelectedPlaceVisitId(visit.id);
+    setInfoWindowGuideId(null);
+    const mapInstance = mapRef.current;
+    if (!mapInstance) {
+      return;
+    }
+
+    mapInstance.panTo({ lat: visit.centerLatitude, lng: visit.centerLongitude });
+    if ((mapInstance.getZoom() ?? 0) < 13) {
+      mapInstance.setZoom(14);
+    }
+  }, []);
+
   useEffect(() => {
     setSelectedPlaceVisitId(null);
   }, [focusedGuideId]);
+
+  useEffect(() => {
+    if (
+      selectedPlaceVisitId &&
+      !visiblePlaceVisits.some((visit) => visit.id === selectedPlaceVisitId)
+    ) {
+      setSelectedPlaceVisitId(null);
+    }
+  }, [selectedPlaceVisitId, visiblePlaceVisits]);
 
   useEffect(() => {
     if (!mapRef.current) {
@@ -325,7 +354,7 @@ function GuideGoogleMap({
   );
 
   return (
-    <div ref={mapContainerRef} className={`${MAP_HEIGHT_CLASS} w-full`}>
+    <div ref={mapContainerRef} className={`relative ${MAP_HEIGHT_CLASS} w-full`}>
       <GoogleMap
         mapContainerStyle={MAP_CONTAINER_STYLE}
         center={DEFAULT_MAP_CENTER}
@@ -347,10 +376,7 @@ function GuideGoogleMap({
             position={{ lat: visit.centerLatitude, lng: visit.centerLongitude }}
             icon={buildPlaceVisitMarkerIcon(selected)}
             zIndex={selected ? 900 : 50}
-            onClick={() => {
-              setSelectedPlaceVisitId(visit.id);
-              setInfoWindowGuideId(null);
-            }}
+            onClick={() => focusPlaceVisit(visit)}
           />
         );
       })}
@@ -472,6 +498,36 @@ function GuideGoogleMap({
         </InfoWindowF>
       ) : null}
       </GoogleMap>
+      {visiblePlaceVisits.length > 0 ? (
+        <div className="pointer-events-none absolute inset-x-0 top-3 z-[5] flex justify-center px-3 pr-14">
+          <div
+            role="toolbar"
+            aria-label="장소 방문 순서"
+            className="pointer-events-auto flex max-w-full gap-1 overflow-x-auto rounded-full bg-white/95 px-2 py-1.5 shadow-sm ring-1 ring-slate-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {visiblePlaceVisits.map((visit, index) => {
+              const selected = selectedPlaceVisitId === visit.id;
+              return (
+                <button
+                  key={visit.id}
+                  type="button"
+                  aria-label={`${index + 1}번째 방문, ${formatRecordedAt(visit.startedAt)}`}
+                  aria-pressed={selected}
+                  title={`${index + 1}. ${formatRecordedAt(visit.startedAt)}`}
+                  className={`flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-medium transition ${
+                    selected
+                      ? 'bg-orange-600 text-white'
+                      : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-orange-50 hover:text-orange-800'
+                  }`}
+                  onClick={() => focusPlaceVisit(visit)}
+                >
+                  {index + 1}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
