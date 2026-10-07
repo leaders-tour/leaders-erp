@@ -6,6 +6,11 @@ enum CatalogPlaceType {
   AREA
 }
 
+enum CatalogVisitJudgmentType {
+  PASS
+  STAY
+}
+
 enum CatalogUsageStatus {
   ACTIVE
   INACTIVE
@@ -67,7 +72,9 @@ type CatalogPlace {
   internalNote: String
   accommodationId: ID
   accommodation: CatalogAccommodationSummary
+  visitJudgmentType: CatalogVisitJudgmentType
   visitRadiusM: Int
+  visitMinStayMinutes: Int
   status: CatalogUsageStatus!
   sortOrder: Int!
   createdAt: DateTime!
@@ -239,7 +246,9 @@ input CatalogPlaceCreateInput {
   displayName: String
   internalNote: String
   accommodationId: ID
+  visitJudgmentType: CatalogVisitJudgmentType
   visitRadiusM: Int
+  visitMinStayMinutes: Int
   status: CatalogUsageStatus
 }
 
@@ -254,7 +263,9 @@ input CatalogPlaceUpdateInput {
   displayName: String
   internalNote: String
   accommodationId: ID
+  visitJudgmentType: CatalogVisitJudgmentType
   visitRadiusM: Int
+  visitMinStayMinutes: Int
   status: CatalogUsageStatus
 }
 

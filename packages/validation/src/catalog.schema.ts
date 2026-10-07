@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const catalogPlaceTypeSchema = z.enum(['LODGING', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA']);
+const catalogVisitJudgmentTypeSchema = z.enum(['PASS', 'STAY']);
 const catalogUsageStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
 const catalogElementCompositionSchema = z.enum(['SINGLE', 'SET']);
 const catalogElementKindSchema = z.enum(['MEETING', 'TRANSFER', 'MEAL', 'EXPERIENCE', 'MIXED']);
@@ -30,7 +31,9 @@ const catalogPlaceFields = z.object({
   displayName: z.string().max(120).nullable().optional(),
   internalNote: optionalText,
   accommodationId: optionalId,
-  visitRadiusM: z.number().int().nonnegative().nullable().optional(),
+  visitJudgmentType: catalogVisitJudgmentTypeSchema.nullable().optional(),
+  visitRadiusM: z.number().int().min(1).max(100000).nullable().optional(),
+  visitMinStayMinutes: z.number().int().min(1).max(10080).nullable().optional(),
   status: catalogUsageStatusSchema.optional(),
 });
 
@@ -47,9 +50,21 @@ function lodgingOnlyAccommodation(
   }
 }
 
-export const catalogPlaceCreateSchema = catalogPlaceFields.superRefine(lodgingOnlyAccommodation);
+function stripStayMinutesForPass<T extends { visitJudgmentType?: 'PASS' | 'STAY' | null; visitMinStayMinutes?: number | null }>(
+  data: T,
+): T {
+  if (data.visitJudgmentType !== 'PASS') return data;
+  return { ...data, visitMinStayMinutes: null };
+}
 
-export const catalogPlaceUpdateSchema = catalogPlaceFields.partial().superRefine(lodgingOnlyAccommodation);
+export const catalogPlaceCreateSchema = catalogPlaceFields
+  .superRefine(lodgingOnlyAccommodation)
+  .transform(stripStayMinutesForPass);
+
+export const catalogPlaceUpdateSchema = catalogPlaceFields
+  .partial()
+  .superRefine(lodgingOnlyAccommodation)
+  .transform(stripStayMinutesForPass);
 
 export const catalogRouteCreateSchema = z.object({
   name: z.string().min(1).max(120),

@@ -2276,6 +2276,11 @@ enum CatalogPlaceType {
   AREA
 }
 
+enum CatalogVisitJudgmentType {
+  PASS
+  STAY
+}
+
 enum CatalogUsageStatus {
   ACTIVE
   INACTIVE
@@ -2332,9 +2337,11 @@ model CatalogPlace {
   linkLabel        String?
   displayName      String?
   internalNote     String?
-  accommodationId  String?
-  visitRadiusM     Int?
-  status           CatalogUsageStatus @default(ACTIVE)
+  accommodationId      String?
+  visitJudgmentType    CatalogVisitJudgmentType?
+  visitRadiusM         Int?
+  visitMinStayMinutes  Int?
+  status               CatalogUsageStatus @default(ACTIVE)
   sortOrder        Int                @default(0)
 
   region        CatalogRegion?  @relation(fields: [regionId], references: [id], onDelete: SetNull)

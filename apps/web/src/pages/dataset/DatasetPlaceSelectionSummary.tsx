@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
-import { PLACE_TYPE_LABEL, STATUS_LABEL } from '../../features/dataset/labels';
+import { PLACE_TYPE_LABEL, STATUS_LABEL, VISIT_JUDGMENT_TYPE_LABEL } from '../../features/dataset/labels';
 import { DatasetButton, DatasetCard, StubButton } from '../../features/dataset/ui';
 
 interface DatasetPlaceSelectionSummaryProps {
@@ -27,7 +27,18 @@ export function DatasetPlaceSelectionSummary({
   const hasCoords = place.latitude != null && place.longitude != null;
   const regionPath = [place.country, place.region?.name, place.parentPlace?.name].filter(Boolean).join(' / ');
   const lodgingCode = lodgingDisplayCode(place);
-  const radiusM = place.visitRadiusM ?? 50;
+  const judgmentType = place.visitJudgmentType;
+  const radiusM = place.visitRadiusM;
+  const stayMinutes = place.visitMinStayMinutes;
+  const judgmentSummary = [
+    judgmentType ? VISIT_JUDGMENT_TYPE_LABEL[judgmentType] : '유형 미설정',
+    radiusM != null ? `반경 ${radiusM}m` : '반경 미설정',
+    judgmentType === 'PASS'
+      ? '체류 미적용'
+      : stayMinutes != null
+        ? `체류 ${stayMinutes}분 이상`
+        : '체류시간 미설정',
+  ].join(' · ');
 
   const relatedGates = useMemo(
     () => places.filter((row) => row.placeType === 'GATE' && row.parentPlaceId === place.id),
@@ -89,12 +100,10 @@ export function DatasetPlaceSelectionSummary({
 
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="rounded-2xl bg-[#F3FBF6] px-4 py-3">
-            <p className="text-sm font-semibold text-slate-800">방문 판정 위치</p>
-            <p className="mt-1 text-sm text-slate-700">
-              반경 {radiusM}m · 체류 3분 이상 <span className="text-slate-400">(설정 예시)</span>
-            </p>
+            <p className="text-sm font-semibold text-slate-800">방문 판정</p>
+            <p className="mt-1 text-sm text-slate-700">{judgmentSummary}</p>
             <p className="mt-2 text-xs leading-relaxed text-slate-500">
-              GPS 도착 인정은 별도 반경·체류 규칙으로 판정합니다. 판정 엔진은 아직 연결하지 않았습니다.
+              GPS 도착 인정은 이 장소의 반경·체류 규칙으로 판정합니다. 판정 엔진은 아직 연결하지 않았습니다.
             </p>
           </div>
           {isLodging ? (

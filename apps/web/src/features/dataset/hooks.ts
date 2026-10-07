@@ -5,6 +5,7 @@ import type {
   CatalogElementKind,
   CatalogPlaceType,
   CatalogUsageStatus,
+  CatalogVisitJudgmentType,
 } from './labels';
 
 export interface CatalogRegionRow {
@@ -41,7 +42,9 @@ export interface CatalogPlaceRow {
     region: string | null;
     destination: string | null;
   } | null;
+  visitJudgmentType: CatalogVisitJudgmentType | null;
   visitRadiusM: number | null;
+  visitMinStayMinutes: number | null;
   status: CatalogUsageStatus;
   sortOrder: number;
 }
@@ -198,7 +201,9 @@ const PLACES_QUERY = gql`
         region
         destination
       }
+      visitJudgmentType
       visitRadiusM
+      visitMinStayMinutes
       status
       sortOrder
     }

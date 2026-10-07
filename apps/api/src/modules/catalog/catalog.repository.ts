@@ -163,7 +163,9 @@ export class CatalogRepository {
         displayName: data.displayName ?? null,
         internalNote: data.internalNote ?? null,
         accommodationId: data.placeType === 'LODGING' ? (data.accommodationId ?? null) : null,
+        visitJudgmentType: data.visitJudgmentType ?? null,
         visitRadiusM: data.visitRadiusM ?? null,
+        visitMinStayMinutes: data.visitJudgmentType === 'PASS' ? null : (data.visitMinStayMinutes ?? null),
         status: data.status ?? 'ACTIVE',
         sortOrder: count + 100,
       },
@@ -189,7 +191,13 @@ export class CatalogRepository {
           : data.accommodationId !== undefined
             ? { accommodationId: data.accommodationId }
             : {}),
+        ...(data.visitJudgmentType !== undefined ? { visitJudgmentType: data.visitJudgmentType } : {}),
         ...(data.visitRadiusM !== undefined ? { visitRadiusM: data.visitRadiusM } : {}),
+        ...(data.visitJudgmentType === 'PASS'
+          ? { visitMinStayMinutes: null }
+          : data.visitMinStayMinutes !== undefined
+            ? { visitMinStayMinutes: data.visitMinStayMinutes }
+            : {}),
         ...(data.status != null ? { status: data.status } : {}),
       },
       include: placeInclude,

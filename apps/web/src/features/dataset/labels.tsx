@@ -1,6 +1,7 @@
 import { datasetTheme } from './theme';
 
 export type CatalogPlaceType = 'LODGING' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+export type CatalogVisitJudgmentType = 'PASS' | 'STAY';
 export type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
 export type CatalogElementComposition = 'SINGLE' | 'SET';
 export type CatalogElementKind = 'MEETING' | 'TRANSFER' | 'MEAL' | 'EXPERIENCE' | 'MIXED';
@@ -26,6 +27,15 @@ export const STATUS_LABEL: Record<CatalogUsageStatus, string> = {
   ACTIVE: '사용 중',
   INACTIVE: '사용 안 함',
 };
+
+export const VISIT_JUDGMENT_TYPE_LABEL: Record<CatalogVisitJudgmentType, string> = {
+  PASS: '통과형',
+  STAY: '체류형',
+};
+
+export function defaultVisitJudgmentType(placeType: CatalogPlaceType): CatalogVisitJudgmentType {
+  return placeType === 'GATE' ? 'PASS' : 'STAY';
+}
 
 export function StatusBadge({ status }: { status: CatalogUsageStatus }): JSX.Element {
   const active = status === 'ACTIVE';

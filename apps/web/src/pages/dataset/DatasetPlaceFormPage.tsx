@@ -4,12 +4,22 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAccommodation, useAccommodations } from '../../features/accommodation/hooks';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import { useCatalogPlaces, useCatalogRegions, useCreateCatalogPlace, useUpdateCatalogPlace } from '../../features/dataset/hooks';
-import { DatasetPageFooter, PLACE_TYPE_LABEL, type CatalogPlaceType, type CatalogUsageStatus } from '../../features/dataset/labels';
+import {
+  DatasetPageFooter,
+  PLACE_TYPE_LABEL,
+  VISIT_JUDGMENT_TYPE_LABEL,
+  defaultVisitJudgmentType,
+  type CatalogPlaceType,
+  type CatalogUsageStatus,
+  type CatalogVisitJudgmentType,
+} from '../../features/dataset/labels';
 import { datasetTheme } from '../../features/dataset/theme';
 import { DatasetButton, DatasetCard, DatasetField, DatasetPageShell, datasetControlClass } from '../../features/dataset/ui';
 import { DatasetPlaceFormMap } from './DatasetPlaceFormMap';
 
 const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
+const DEFAULT_VISIT_RADIUS_M = 50;
+const DEFAULT_VISIT_MIN_STAY_MINUTES = 3;
 const LODGING_ROLES = [
   { id: 'REPRESENTATIVE', label: '대표 위치' },
   { id: 'GATE', label: '출입 지점' },
@@ -21,6 +31,12 @@ function parseOptionalNumber(raw: string): number | null {
   if (!trimmed) return null;
   const value = Number(trimmed);
   return Number.isFinite(value) ? value : null;
+}
+
+function parseOptionalInt(raw: string): number | null {
+  const value = parseOptionalNumber(raw);
+  if (value == null) return null;
+  return Number.isInteger(value) ? value : null;
 }
 
 function parseCoordPair(raw: string): { lat: number; lng: number } | null {
@@ -124,9 +140,15 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const [focus, setFocus] = useState<{ lat: number; lng: number } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(!isEdit);
+  const [visitJudgmentType, setVisitJudgmentType] = useState<CatalogVisitJudgmentType>(defaultVisitJudgmentType(initialType));
+  const [radiusInput, setRadiusInput] = useState(String(DEFAULT_VISIT_RADIUS_M));
+  const [stayMinutesInput, setStayMinutesInput] = useState(String(DEFAULT_VISIT_MIN_STAY_MINUTES));
 
   const latitude = parseOptionalNumber(latInput);
   const longitude = parseOptionalNumber(lngInput);
+  const visitRadiusM = parseOptionalInt(radiusInput);
+  const visitMinStayMinutes = parseOptionalInt(stayMinutesInput);
+  const isStayJudgment = visitJudgmentType === 'STAY';
   const isArea = placeType === 'AREA';
   const isLodging = placeType === 'LODGING';
   const { accommodation } = useAccommodation(isLodging ? accommodationId || undefined : undefined);
@@ -144,6 +166,9 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setLatInput(formatCoord(editingPlace.latitude));
     setLngInput(formatCoord(editingPlace.longitude));
     setCoordSource(editingPlace.latitude != null ? 'input' : null);
+    setVisitJudgmentType(editingPlace.visitJudgmentType ?? defaultVisitJudgmentType(editingPlace.placeType));
+    setRadiusInput(editingPlace.visitRadiusM != null ? String(editingPlace.visitRadiusM) : '');
+    setStayMinutesInput(editingPlace.visitMinStayMinutes != null ? String(editingPlace.visitMinStayMinutes) : '');
     setHydrated(true);
   }, [editingPlace, hydrated, isEdit]);
 
@@ -188,6 +213,18 @@ export function DatasetPlaceFormPage(): JSX.Element {
     .filter(Boolean)
     .join(' / ');
 
+  const judgmentError = (() => {
+    if (radiusInput.trim() && visitRadiusM == null) return '판정 반경은 1 이상의 정수(m)여야 합니다.';
+    if (visitRadiusM != null && (visitRadiusM < 1 || visitRadiusM > 100000)) return '판정 반경은 1~100000m 사이여야 합니다.';
+    if (isStayJudgment && stayMinutesInput.trim() && visitMinStayMinutes == null) {
+      return '최소 체류시간은 1 이상의 정수(분)여야 합니다.';
+    }
+    if (isStayJudgment && visitMinStayMinutes != null && (visitMinStayMinutes < 1 || visitMinStayMinutes > 10080)) {
+      return '최소 체류시간은 1~10080분 사이여야 합니다.';
+    }
+    return null;
+  })();
+
   const coordPairError = (() => {
     const latRaw = latInput.trim();
     const lngRaw = lngInput.trim();
@@ -199,7 +236,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   })();
 
   const saving = createState.loading || updateState.loading;
-  const canSave = Boolean(name.trim()) && !coordPairError;
+  const canSave = Boolean(name.trim()) && !coordPairError && !judgmentError;
 
   const applyCoords = (lat: number, lng: number, source: 'map' | 'input' | 'paste') => {
     setLatInput(String(lat));
@@ -240,6 +277,9 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setSearchResults([]);
     setFormError(null);
     setPickEnabled(true);
+    setVisitJudgmentType(defaultVisitJudgmentType(placeType));
+    setRadiusInput(String(DEFAULT_VISIT_RADIUS_M));
+    setStayMinutesInput(String(DEFAULT_VISIT_MIN_STAY_MINUTES));
   };
 
   const buildInput = () => ({
@@ -252,12 +292,15 @@ export function DatasetPlaceFormPage(): JSX.Element {
     longitude,
     displayName: displayName.trim() || null,
     accommodationId: isLodging ? accommodationId || null : null,
+    visitJudgmentType,
+    visitRadiusM,
+    visitMinStayMinutes: isStayJudgment ? visitMinStayMinutes : null,
     status,
   });
 
   const handleSave = async (continueCreating: boolean) => {
     if (!canSave) {
-      setFormError(coordPairError ?? '장소명을 입력하세요.');
+      setFormError(coordPairError ?? judgmentError ?? '장소명을 입력하세요.');
       return;
     }
     setFormError(null);
@@ -291,7 +334,10 @@ export function DatasetPlaceFormPage(): JSX.Element {
         regionId !== (editingPlace.regionId ?? '') ||
         accommodationId !== (editingPlace.accommodationId ?? '') ||
         latInput !== formatCoord(editingPlace.latitude) ||
-        lngInput !== formatCoord(editingPlace.longitude);
+        lngInput !== formatCoord(editingPlace.longitude) ||
+        visitJudgmentType !== (editingPlace.visitJudgmentType ?? defaultVisitJudgmentType(editingPlace.placeType)) ||
+        radiusInput !== (editingPlace.visitRadiusM != null ? String(editingPlace.visitRadiusM) : '') ||
+        stayMinutesInput !== (editingPlace.visitMinStayMinutes != null ? String(editingPlace.visitMinStayMinutes) : '');
     } else if (!isEdit) {
       dirty = Boolean(name.trim() || displayName.trim() || latInput.trim() || lngInput.trim() || pasteInput.trim());
     }
@@ -368,6 +414,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                       onChange={(event) => {
                         const next = event.target.value as CatalogPlaceType;
                         setPlaceType(next);
+                        setVisitJudgmentType(defaultVisitJudgmentType(next));
                         if (next === 'AREA') setParentPlaceId('');
                         if (next !== 'LODGING') setAccommodationId('');
                       }}
@@ -597,6 +644,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                     longitude={longitude}
                     pickEnabled={pickEnabled}
                     focus={focus}
+                    visitRadiusM={visitRadiusM}
                     onPick={(lat, lng) => applyCoords(lat, lng, 'map')}
                   />
                 </div>
@@ -654,6 +702,53 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 </div>
               </Section>
 
+              <Section
+                n={5}
+                title="방문 판정"
+                extra={<span className="text-xs text-[#9A93C2]">좌표와 별도 저장</span>}
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <DatasetField label="판정 유형">
+                    <select
+                      className={datasetControlClass}
+                      value={visitJudgmentType}
+                      onChange={(event) => setVisitJudgmentType(event.target.value as CatalogVisitJudgmentType)}
+                    >
+                      <option value="STAY">{VISIT_JUDGMENT_TYPE_LABEL.STAY}</option>
+                      <option value="PASS">{VISIT_JUDGMENT_TYPE_LABEL.PASS}</option>
+                    </select>
+                  </DatasetField>
+                  <DatasetField label="판정 반경 (m)">
+                    <Input
+                      className={datasetControlClass}
+                      value={radiusInput}
+                      onChange={(event) => setRadiusInput(event.target.value)}
+                      placeholder="예: 50"
+                      inputMode="numeric"
+                    />
+                  </DatasetField>
+                </div>
+                <DatasetField label="최소 체류시간 (분)">
+                  <Input
+                    className={datasetControlClass}
+                    value={stayMinutesInput}
+                    onChange={(event) => setStayMinutesInput(event.target.value)}
+                    placeholder={isStayJudgment ? '예: 3' : '통과형에는 적용하지 않습니다'}
+                    inputMode="numeric"
+                    disabled={!isStayJudgment}
+                  />
+                </DatasetField>
+                {judgmentError ? <p className="text-xs text-rose-600">{judgmentError}</p> : null}
+                <p className="text-xs text-[#8B83B8]">
+                  {isStayJudgment
+                    ? '체류형은 반경 안에서 머문 시간을 봅니다. 입력값은 이 장소에만 저장하며, 판정 엔진은 아직 연결하지 않았습니다.'
+                    : '통과형은 진입·이탈 흐름을 봅니다. 체류시간은 입력해도 이 유형에서는 저장·판정에 쓰지 않습니다.'}
+                </p>
+                {latitude == null || longitude == null ? (
+                  <p className="text-xs text-amber-700">좌표가 없으면 반경을 저장할 수는 있지만, 상위 좌표나 0,0으로 대신 판정하지 않습니다.</p>
+                ) : null}
+              </Section>
+
               <Section n={9} title="저장 전 확인">
                 <dl className="grid gap-2 text-sm">
                   <div className="flex justify-between gap-3">
@@ -679,6 +774,18 @@ export function DatasetPlaceFormPage(): JSX.Element {
                   <div className="flex justify-between gap-3">
                     <dt className="text-slate-500">좌표</dt>
                     <dd className="text-right text-slate-800">{latitude != null && longitude != null ? '지정 가능' : '미등록 · 저장 가능'}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500">방문 판정</dt>
+                    <dd className="text-right text-slate-800">
+                      {VISIT_JUDGMENT_TYPE_LABEL[visitJudgmentType]}
+                      {visitRadiusM != null ? ` · ${visitRadiusM}m` : ' · 반경 미입력'}
+                      {isStayJudgment
+                        ? visitMinStayMinutes != null
+                          ? ` · ${visitMinStayMinutes}분`
+                          : ' · 체류시간 미입력'
+                        : ' · 체류 미적용'}
+                    </dd>
                   </div>
                 </dl>
                 {latitude == null && longitude == null ? (

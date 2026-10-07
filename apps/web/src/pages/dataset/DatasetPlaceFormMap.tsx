@@ -1,4 +1,4 @@
-import { GoogleMap, MarkerF, OverlayView, OverlayViewF, useJsApiLoader } from '@react-google-maps/api';
+import { CircleF, GoogleMap, MarkerF, OverlayView, OverlayViewF, useJsApiLoader } from '@react-google-maps/api';
 import { useEffect, useMemo, useRef } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import { GOOGLE_MAPS_API_KEY } from '../../lib/google-maps-api-key';
@@ -12,6 +12,7 @@ interface DatasetPlaceFormMapProps {
   longitude: number | null;
   pickEnabled: boolean;
   focus: { lat: number; lng: number } | null;
+  visitRadiusM?: number | null;
   onPick: (lat: number, lng: number) => void;
 }
 
@@ -21,6 +22,7 @@ export function DatasetPlaceFormMap({
   longitude,
   pickEnabled,
   focus,
+  visitRadiusM,
   onPick,
 }: DatasetPlaceFormMapProps): JSX.Element {
   const { isLoaded, loadError } = useJsApiLoader({
@@ -110,6 +112,20 @@ export function DatasetPlaceFormMap({
           </div>
         </OverlayViewF>
       ))}
+      {hasDraft && visitRadiusM != null ? (
+        <CircleF
+          center={{ lat: latitude, lng: longitude }}
+          radius={visitRadiusM}
+          options={{
+            clickable: false,
+            fillColor: '#7C6CE0',
+            fillOpacity: 0.16,
+            strokeColor: '#5B4BD6',
+            strokeOpacity: 0.7,
+            strokeWeight: 1,
+          }}
+        />
+      ) : null}
       {hasDraft ? (
         <MarkerF
           position={{ lat: latitude, lng: longitude }}
