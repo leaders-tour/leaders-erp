@@ -20,6 +20,7 @@ import {
   normalizeGuideMapPath,
   type GuideProjectDayOption,
 } from '../features/guide/guide-location-map-utils';
+import { buildPlaceCreatePathFromVisit } from '../features/dataset/place-visit-draft';
 import {
   useGuideLiveLocations,
   useGuidePlaceVisits,
@@ -188,6 +189,7 @@ function GuideGoogleMap({
   mapFitSource,
   placeVisits,
   projects,
+  placeCreateHref,
   onFocusGuide,
 }: {
   locations: GuideLiveLocationRow[];
@@ -196,6 +198,7 @@ function GuideGoogleMap({
   mapFitSource: GuideLiveLocationRow | null;
   placeVisits: GuidePlaceVisitRow[];
   projects: LeaderstepsActiveProjectRow[];
+  placeCreateHref: (visit: GuidePlaceVisitRow) => string | null;
   onFocusGuide: (guideId: string | null) => void;
 }): JSX.Element {
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -245,6 +248,7 @@ function GuideGoogleMap({
     locations.find((location) => location.guideId === infoWindowGuideId) ?? null;
   const selectedPlaceVisit =
     placeVisits.find((visit) => visit.id === selectedPlaceVisitId) ?? null;
+  const selectedPlaceCreateHref = selectedPlaceVisit ? placeCreateHref(selectedPlaceVisit) : null;
   const selectedPlaceVisitPinTypeLabel = selectedPlaceVisit
     ? formatPlaceVisitPinTypeLabel(selectedPlaceVisit.pinType)
     : null;
@@ -473,6 +477,14 @@ function GuideGoogleMap({
                   기록 없음
                 </div>
               )}
+              {selectedPlaceCreateHref ? (
+                <a
+                  href={selectedPlaceCreateHref}
+                  className="mt-2 inline-flex h-8 items-center justify-center rounded-lg bg-orange-600 px-3 text-xs font-medium text-white hover:bg-orange-700"
+                >
+                  이 방문으로 장소 등록
+                </a>
+              ) : null}
             </div>
           </div>
         </InfoWindowF>
@@ -818,6 +830,15 @@ export function GuideLocationMapPage(): JSX.Element {
               mapFitSource={focusedLocationSource}
               placeVisits={displayPlaceVisits}
               projects={projects}
+              placeCreateHref={(visit) =>
+                focusedGuideId
+                  ? buildPlaceCreatePathFromVisit(visit, {
+                      guideId: focusedGuideId,
+                      date: selectedDate,
+                      projectId: projectId || null,
+                    })
+                  : null
+              }
               onFocusGuide={setFocusedGuideId}
             />
           ) : (

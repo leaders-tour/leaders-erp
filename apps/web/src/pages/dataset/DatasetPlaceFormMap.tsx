@@ -1,6 +1,8 @@
 import { CircleF, GoogleMap, MarkerF, OverlayView, OverlayViewF, useJsApiLoader } from '@react-google-maps/api';
 import { useEffect, useMemo, useRef } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
+import { buildPlaceVisitMarkerIcon } from '../../features/guide/guide-location-map-utils';
+import type { GuidePlaceVisitRow } from '../../features/guide/hooks';
 import { GOOGLE_MAPS_API_KEY } from '../../lib/google-maps-api-key';
 
 const DEFAULT_CENTER = { lat: 47.8512, lng: 106.912 };
@@ -13,7 +15,10 @@ interface DatasetPlaceFormMapProps {
   pickEnabled: boolean;
   focus: { lat: number; lng: number } | null;
   visitRadiusM?: number | null;
+  visits?: GuidePlaceVisitRow[];
+  selectedVisitId?: string | null;
   onPick: (lat: number, lng: number) => void;
+  onSelectVisit?: (visit: GuidePlaceVisitRow) => void;
 }
 
 export function DatasetPlaceFormMap({
@@ -23,7 +28,10 @@ export function DatasetPlaceFormMap({
   pickEnabled,
   focus,
   visitRadiusM,
+  visits = [],
+  selectedVisitId = null,
   onPick,
+  onSelectVisit,
 }: DatasetPlaceFormMapProps): JSX.Element {
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'catalog-place-map-ko',
@@ -51,13 +59,21 @@ export function DatasetPlaceFormMap({
       map.panTo({ lat: latitude, lng: longitude });
       return;
     }
+    if (visits.length > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      for (const visit of visits) {
+        bounds.extend({ lat: visit.centerLatitude, lng: visit.centerLongitude });
+      }
+      map.fitBounds(bounds, 48);
+      return;
+    }
     if (relatedMarkers.length === 0) return;
     const bounds = new google.maps.LatLngBounds();
     for (const row of relatedMarkers) {
       bounds.extend({ lat: row.latitude as number, lng: row.longitude as number });
     }
     map.fitBounds(bounds, 64);
-  }, [focus, hasDraft, latitude, longitude, relatedMarkers]);
+  }, [focus, hasDraft, latitude, longitude, relatedMarkers, visits]);
 
   if (!GOOGLE_MAPS_API_KEY) {
     return (
@@ -98,6 +114,18 @@ export function DatasetPlaceFormMap({
         styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }],
       }}
     >
+      {visits.map((visit) => {
+        const selected = visit.id === selectedVisitId;
+        return (
+          <MarkerF
+            key={`visit-${visit.id}`}
+            position={{ lat: visit.centerLatitude, lng: visit.centerLongitude }}
+            icon={buildPlaceVisitMarkerIcon(selected)}
+            zIndex={selected ? 80 : 40}
+            onClick={() => onSelectVisit?.(visit)}
+          />
+        );
+      })}
       {relatedMarkers.map((row) => (
         <OverlayViewF
           key={row.id}

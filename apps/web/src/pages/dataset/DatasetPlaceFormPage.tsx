@@ -4,6 +4,14 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAccommodation, useAccommodations } from '../../features/accommodation/hooks';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import { useCatalogPlaces, useCatalogRegions, useCreateCatalogPlace, useUpdateCatalogPlace } from '../../features/dataset/hooks';
+import { parsePlaceVisitQuery, visitToPlaceDraft } from '../../features/dataset/place-visit-draft';
+import { getTodayInUlaanbaatarDateInputValue } from '../../features/guide/guide-location-map-utils';
+import {
+  useGuidePlaceVisits,
+  useGuides,
+  useLeaderstepsActiveProjects,
+  type GuidePlaceVisitRow,
+} from '../../features/guide/hooks';
 import {
   DatasetPageFooter,
   PLACE_TYPE_LABEL,
@@ -108,6 +116,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const [createPlace, createState] = useCreateCatalogPlace();
   const [updatePlace, updateState] = useUpdateCatalogPlace();
   const { accommodations } = useAccommodations({});
+  const { guides } = useGuides();
 
   const places = placesQuery.data?.catalogPlaces ?? [];
   const regions = regionsQuery.data?.catalogRegions ?? [];
@@ -116,10 +125,13 @@ export function DatasetPlaceFormPage(): JSX.Element {
     [placeId, places],
   );
 
-  const [name, setName] = useState('');
+  const visitQuery = !isEdit ? parsePlaceVisitQuery(searchParams) : null;
+  const visitDraft = visitQuery ? visitToPlaceDraft(visitQuery) : null;
+  const [name, setName] = useState(visitDraft?.name ?? '');
   const [displayName, setDisplayName] = useState('');
   const requestedType = searchParams.get('type') as CatalogPlaceType | null;
-  const initialType = requestedType && PLACE_TYPES.includes(requestedType) ? requestedType : 'LODGING';
+  const initialType =
+    visitDraft?.placeType ?? (requestedType && PLACE_TYPES.includes(requestedType) ? requestedType : 'LODGING');
   const [placeType, setPlaceType] = useState<CatalogPlaceType>(initialType);
   const [status, setStatus] = useState<CatalogUsageStatus>('ACTIVE');
   const [parentPlaceId, setParentPlaceId] = useState(initialType === 'AREA' ? '' : searchParams.get('parentId') ?? '');
@@ -129,20 +141,57 @@ export function DatasetPlaceFormPage(): JSX.Element {
     initialType === 'LODGING' ? searchParams.get('accommodationId') ?? '' : '',
   );
   const [lodgingRole, setLodgingRole] = useState<(typeof LODGING_ROLES)[number]['id']>('PICKUP');
-  const [latInput, setLatInput] = useState('');
-  const [lngInput, setLngInput] = useState('');
+  const [latInput, setLatInput] = useState(visitDraft ? String(visitDraft.latitude) : '');
+  const [lngInput, setLngInput] = useState(visitDraft ? String(visitDraft.longitude) : '');
   const [pasteInput, setPasteInput] = useState('');
   const [pickEnabled, setPickEnabled] = useState(!isEdit);
-  const [coordSource, setCoordSource] = useState<'map' | 'input' | 'paste' | null>(null);
+  const [coordSource, setCoordSource] = useState<'map' | 'input' | 'paste' | 'visit' | null>(
+    visitDraft ? 'visit' : null,
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ label: string; lat: number; lng: number }>>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [focus, setFocus] = useState<{ lat: number; lng: number } | null>(null);
+  const [focus, setFocus] = useState<{ lat: number; lng: number } | null>(
+    visitDraft ? { lat: visitDraft.latitude, lng: visitDraft.longitude } : null,
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(!isEdit);
-  const [visitJudgmentType, setVisitJudgmentType] = useState<CatalogVisitJudgmentType>(defaultVisitJudgmentType(initialType));
-  const [radiusInput, setRadiusInput] = useState(String(DEFAULT_VISIT_RADIUS_M));
-  const [stayMinutesInput, setStayMinutesInput] = useState(String(DEFAULT_VISIT_MIN_STAY_MINUTES));
+  const [visitJudgmentType, setVisitJudgmentType] = useState<CatalogVisitJudgmentType>(
+    visitDraft?.visitJudgmentType ?? defaultVisitJudgmentType(initialType),
+  );
+  const [radiusInput, setRadiusInput] = useState(
+    visitDraft ? String(visitDraft.visitRadiusM) : String(DEFAULT_VISIT_RADIUS_M),
+  );
+  const [stayMinutesInput, setStayMinutesInput] = useState(
+    visitDraft
+      ? visitDraft.visitMinStayMinutes != null
+        ? String(visitDraft.visitMinStayMinutes)
+        : ''
+      : String(DEFAULT_VISIT_MIN_STAY_MINUTES),
+  );
+  const [visitGuideId, setVisitGuideId] = useState(isEdit ? '' : searchParams.get('guideId') ?? '');
+  const [visitDate, setVisitDate] = useState(
+    isEdit ? '' : searchParams.get('date') || getTodayInUlaanbaatarDateInputValue(),
+  );
+  const [visitProjectId, setVisitProjectId] = useState(isEdit ? '' : searchParams.get('projectId') ?? '');
+  const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
+  const visitGuides = useMemo(() => {
+    const sorted = [...guides].sort((left, right) => {
+      const linkedDelta = Number(Boolean(right.leaderstepsAuthUserId)) - Number(Boolean(left.leaderstepsAuthUserId));
+      if (linkedDelta !== 0) return linkedDelta;
+      return left.nameKo.localeCompare(right.nameKo, 'ko');
+    });
+    if (visitGuideId && !sorted.some((row) => row.id === visitGuideId)) {
+      return [{ id: visitGuideId, nameKo: '현장 참여자', nameMn: null as string | null }, ...sorted];
+    }
+    return sorted;
+  }, [guides, visitGuideId]);
+  const { projects: visitProjects } = useLeaderstepsActiveProjects(isEdit ? undefined : visitDate);
+  const { placeVisits, loading: visitLoading, errorMessage: visitError } = useGuidePlaceVisits({
+    guideId: !isEdit && visitGuideId ? visitGuideId : undefined,
+    projectId: visitProjectId || undefined,
+    date: visitDate || undefined,
+  });
 
   const latitude = parseOptionalNumber(latInput);
   const longitude = parseOptionalNumber(lngInput);
@@ -243,6 +292,22 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setLngInput(String(lng));
     setCoordSource(source);
     setFocus({ lat, lng });
+  };
+
+  const applyVisitDraft = (visit: GuidePlaceVisitRow) => {
+    const draft = visitToPlaceDraft(visit);
+    setSelectedVisitId(visit.id);
+    setLatInput(String(draft.latitude));
+    setLngInput(String(draft.longitude));
+    setCoordSource('visit');
+    setFocus({ lat: draft.latitude, lng: draft.longitude });
+    setVisitJudgmentType(draft.visitJudgmentType);
+    setRadiusInput(String(draft.visitRadiusM));
+    setStayMinutesInput(draft.visitMinStayMinutes != null ? String(draft.visitMinStayMinutes) : '');
+    setPlaceType(draft.placeType);
+    if (draft.placeType === 'AREA') setParentPlaceId('');
+    if (draft.placeType !== 'LODGING') setAccommodationId('');
+    if (draft.name && !name.trim()) setName(draft.name);
   };
 
   const handleSearch = () => {
@@ -595,6 +660,68 @@ export function DatasetPlaceFormPage(): JSX.Element {
                   </span>
                 }
               >
+                {!isEdit ? (
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <DatasetField label="현장 가이드">
+                      <select
+                        className={datasetControlClass}
+                        value={visitGuideId}
+                        onChange={(event) => {
+                          setVisitGuideId(event.target.value);
+                          setSelectedVisitId(null);
+                        }}
+                      >
+                        <option value="">가이드를 선택하면 방문 핀이 표시됩니다</option>
+                        {visitGuides.map((row) => (
+                          <option key={row.id} value={row.id}>
+                            {row.nameKo}
+                            {row.nameMn ? ` · ${row.nameMn}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </DatasetField>
+                    <DatasetField label="방문 날짜">
+                      <Input
+                        className={datasetControlClass}
+                        type="date"
+                        value={visitDate}
+                        onChange={(event) => {
+                          setVisitDate(event.target.value);
+                          setVisitProjectId('');
+                          setSelectedVisitId(null);
+                        }}
+                      />
+                    </DatasetField>
+                    <DatasetField label="프로젝트">
+                      <select
+                        className={datasetControlClass}
+                        value={visitProjectId}
+                        onChange={(event) => {
+                          setVisitProjectId(event.target.value);
+                          setSelectedVisitId(null);
+                        }}
+                      >
+                        <option value="">해당일 전체</option>
+                        {visitProjects.map((row) => (
+                          <option key={row.id} value={row.id}>
+                            {row.name}
+                          </option>
+                        ))}
+                      </select>
+                    </DatasetField>
+                  </div>
+                ) : null}
+                {isEdit ? null : visitError ? (
+                  <p className="text-xs text-amber-600">{visitError}</p>
+                ) : visitGuideId ? (
+                  <p className="text-xs text-[#8B83B8]">
+                    {visitLoading
+                      ? '현장 방문을 불러오는 중…'
+                      : `주황 핀 ${placeVisits.length}개 · 누르면 좌표·판정 초안을 채웁니다.`}
+                  </p>
+                ) : (
+                  <p className="text-xs text-[#8B83B8]">가이드를 고르면 그날 방문 핀을 지도에 겹칩니다.</p>
+                )}
                 <div className="flex gap-2">
                   <Input
                     className={datasetControlClass}
@@ -645,7 +772,10 @@ export function DatasetPlaceFormPage(): JSX.Element {
                     pickEnabled={pickEnabled}
                     focus={focus}
                     visitRadiusM={visitRadiusM}
+                    visits={isEdit ? [] : placeVisits}
+                    selectedVisitId={selectedVisitId}
                     onPick={(lat, lng) => applyCoords(lat, lng, 'map')}
+                    onSelectVisit={applyVisitDraft}
                   />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
@@ -698,7 +828,18 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 {coordPairError ? <p className="text-xs text-rose-600">{coordPairError}</p> : null}
                 <div className="flex flex-wrap gap-3 text-xs text-slate-500">
                   <span>위치 상태 · {latitude != null && longitude != null ? '등록됨' : '미등록'}</span>
-                  <span>입력 출처 · {coordSource === 'map' ? '지도 지정' : coordSource === 'paste' ? '붙여넣기' : coordSource === 'input' ? '직접 입력' : '미지정'}</span>
+                  <span>
+                    입력 출처 ·{' '}
+                    {coordSource === 'map'
+                      ? '지도 지정'
+                      : coordSource === 'paste'
+                        ? '붙여넣기'
+                        : coordSource === 'input'
+                          ? '직접 입력'
+                          : coordSource === 'visit'
+                            ? '현장 방문'
+                            : '미지정'}
+                  </span>
                 </div>
               </Section>
 
