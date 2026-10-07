@@ -84,28 +84,11 @@ export function normalizeGuideMapPath(
     .map((point) => ({ lat: point.latitude, lng: point.longitude }));
 }
 
+export const GUIDE_PATH_ARROW_REPEAT = '280px';
+export const GUIDE_PATH_TIME_FILTER_DEBOUNCE_MS = 250;
+
 export function canDrawGuidePath(path: GuideMapLatLng[]): boolean {
   return path.length >= 2;
-}
-
-export function simplifyGuideMapPath(path: GuideMapLatLng[], maxPoints = 500): GuideMapLatLng[] {
-  if (path.length <= maxPoints) {
-    return path;
-  }
-
-  const step = Math.ceil(path.length / maxPoints);
-  const simplified: GuideMapLatLng[] = [];
-  for (let index = 0; index < path.length; index += step) {
-    simplified.push(path[index]!);
-  }
-
-  const lastPoint = path[path.length - 1];
-  const tail = simplified[simplified.length - 1];
-  if (lastPoint && (tail?.lat !== lastPoint.lat || tail?.lng !== lastPoint.lng)) {
-    simplified.push(lastPoint);
-  }
-
-  return simplified;
 }
 
 export function buildGuideMapPathLayerKey(
@@ -119,10 +102,17 @@ export function buildGuideMapPathLayerKey(
 ): string {
   return layers
     .map((layer) => {
-      const path = simplifyGuideMapPath(layer.path)
-        .map((point) => `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`)
-        .join(';');
-      return `${layer.guideId}:${layer.color}:${layer.focused ? 1 : 0}:${layer.dimmed ? 1 : 0}:${path}`;
+      const first = layer.path[0];
+      const last = layer.path[layer.path.length - 1];
+      return [
+        layer.guideId,
+        layer.color,
+        layer.focused ? 1 : 0,
+        layer.dimmed ? 1 : 0,
+        layer.path.length,
+        first ? `${first.lat.toFixed(6)},${first.lng.toFixed(6)}` : '',
+        last ? `${last.lat.toFixed(6)},${last.lng.toFixed(6)}` : '',
+      ].join(':');
     })
     .join('|');
 }
@@ -135,7 +125,6 @@ export function buildGuidePathPolylineOptions(layer: {
   const strokeColor = layer.dimmed ? '#94a3b8' : layer.color;
   const arrowColor = layer.dimmed ? '#94a3b8' : darkenGuidePathColor(layer.color, 0.22);
   const strokeOpacity = layer.focused ? 0.95 : layer.dimmed ? 0.18 : 0.72;
-  const arrowOpacity = layer.focused ? 0.88 : layer.dimmed ? 0.18 : 0.82;
   const strokeWeight = layer.focused ? 5 : layer.dimmed ? 3 : 4;
 
   return {
@@ -143,20 +132,22 @@ export function buildGuidePathPolylineOptions(layer: {
     strokeOpacity,
     strokeWeight,
     zIndex: layer.focused ? 2 : layer.dimmed ? 0 : 1,
-    icons: [
-      {
-        icon: {
-          path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-          scale: layer.focused ? 2.8 : layer.dimmed ? 2 : 2.4,
-          strokeColor: arrowColor,
-          strokeOpacity: arrowOpacity,
-          fillColor: arrowColor,
-          fillOpacity: arrowOpacity,
-        },
-        offset: '24px',
-        repeat: layer.focused ? '72px' : layer.dimmed ? '120px' : '96px',
-      },
-    ],
+    icons: layer.focused
+      ? [
+          {
+            icon: {
+              path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              scale: 2.8,
+              strokeColor: arrowColor,
+              strokeOpacity: 0.88,
+              fillColor: arrowColor,
+              fillOpacity: 0.88,
+            },
+            offset: '24px',
+            repeat: GUIDE_PATH_ARROW_REPEAT,
+          },
+        ]
+      : [],
   };
 }
 

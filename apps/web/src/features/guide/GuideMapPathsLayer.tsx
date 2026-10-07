@@ -1,9 +1,7 @@
 import { useEffect, useRef } from 'react';
 import {
-  buildGuideMapPathLayerKey,
   buildGuidePathPolylineOptions,
   canDrawGuidePath,
-  simplifyGuideMapPath,
   type GuideMapLatLng,
 } from './guide-location-map-utils';
 
@@ -17,6 +15,9 @@ export interface GuideMapPathLayer {
 
 interface StoredPolyline {
   polyline: google.maps.Polyline;
+  color: string;
+  focused: boolean;
+  dimmed: boolean;
 }
 
 export function GuideMapPathsLayer({
@@ -26,11 +27,7 @@ export function GuideMapPathsLayer({
   map: google.maps.Map | null;
   layers: GuideMapPathLayer[];
 }): null {
-  const layersRef = useRef(layers);
-  layersRef.current = layers;
-
   const polylinesRef = useRef<Map<string, StoredPolyline>>(new Map());
-  const layersKey = buildGuideMapPathLayerKey(layers);
 
   useEffect(() => {
     if (!map) {
@@ -39,23 +36,44 @@ export function GuideMapPathsLayer({
 
     const activeGuideIds = new Set<string>();
 
-    for (const layer of layersRef.current) {
+    for (const layer of layers) {
       if (!canDrawGuidePath(layer.path)) {
+        const stale = polylinesRef.current.get(layer.guideId);
+        if (stale) {
+          stale.polyline.setMap(null);
+          polylinesRef.current.delete(layer.guideId);
+        }
         continue;
       }
 
       activeGuideIds.add(layer.guideId);
       const existing = polylinesRef.current.get(layer.guideId);
+      const options = buildGuidePathPolylineOptions(layer);
+
       if (existing) {
-        existing.polyline.setMap(null);
+        existing.polyline.setPath(layer.path);
+        if (
+          existing.color !== layer.color ||
+          existing.focused !== layer.focused ||
+          existing.dimmed !== layer.dimmed
+        ) {
+          existing.polyline.setOptions(options);
+          existing.color = layer.color;
+          existing.focused = layer.focused;
+          existing.dimmed = layer.dimmed;
+        }
+        continue;
       }
 
       polylinesRef.current.set(layer.guideId, {
         polyline: new google.maps.Polyline({
-          ...buildGuidePathPolylineOptions(layer),
-          path: simplifyGuideMapPath(layer.path),
+          ...options,
+          path: layer.path,
           map,
         }),
+        color: layer.color,
+        focused: layer.focused,
+        dimmed: layer.dimmed,
       });
     }
 
@@ -65,7 +83,7 @@ export function GuideMapPathsLayer({
         polylinesRef.current.delete(guideId);
       }
     }
-  }, [map, layersKey]);
+  }, [map, layers]);
 
   useEffect(() => {
     return () => {

@@ -16,6 +16,7 @@ import {
   formatVisitDuration,
   getGuidePathColor,
   getTodayInUlaanbaatarDateInputValue,
+  GUIDE_PATH_TIME_FILTER_DEBOUNCE_MS,
   normalizeGuideMapPath,
   type GuideProjectDayOption,
 } from '../features/guide/guide-location-map-utils';
@@ -71,8 +72,28 @@ function GuideFocusedPathFilters({
   onDayChange: (dayDate: string | null) => void;
   onTimeRangeChange: (timeRangeMinutes: [number, number]) => void;
 }): JSX.Element {
-  const [startMinutes, endMinutes] = timeRangeMinutes;
+  const [draftTimeRangeMinutes, setDraftTimeRangeMinutes] = useState(timeRangeMinutes);
+  const [startMinutes, endMinutes] = draftTimeRangeMinutes;
   const selectedDay = dayOptions.find((day) => day.date === focusedDayDate) ?? null;
+
+  useEffect(() => {
+    setDraftTimeRangeMinutes(timeRangeMinutes);
+  }, [timeRangeMinutes]);
+
+  useEffect(() => {
+    if (
+      draftTimeRangeMinutes[0] === timeRangeMinutes[0] &&
+      draftTimeRangeMinutes[1] === timeRangeMinutes[1]
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      onTimeRangeChange(draftTimeRangeMinutes);
+    }, GUIDE_PATH_TIME_FILTER_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [draftTimeRangeMinutes, onTimeRangeChange, timeRangeMinutes]);
 
   return (
     <div className="mt-3 space-y-3 border-t border-indigo-200 pt-3">
@@ -125,7 +146,7 @@ function GuideFocusedPathFilters({
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-indigo-900">시간 범위</p>
             <span className="text-xs text-slate-500">
-              {formatGuidePathTimeRangeLabel(timeRangeMinutes)}
+              {formatGuidePathTimeRangeLabel(draftTimeRangeMinutes)}
             </span>
           </div>
           <div className="mt-2 space-y-2">
@@ -138,7 +159,7 @@ function GuideFocusedPathFilters({
               className="h-2 w-full cursor-pointer accent-indigo-600"
               onChange={(event) => {
                 const nextStart = Number(event.target.value);
-                onTimeRangeChange([Math.min(nextStart, endMinutes), endMinutes]);
+                setDraftTimeRangeMinutes([Math.min(nextStart, endMinutes), endMinutes]);
               }}
             />
             <input
@@ -150,7 +171,7 @@ function GuideFocusedPathFilters({
               className="h-2 w-full cursor-pointer accent-indigo-600"
               onChange={(event) => {
                 const nextEnd = Number(event.target.value);
-                onTimeRangeChange([startMinutes, Math.max(nextEnd, startMinutes)]);
+                setDraftTimeRangeMinutes([startMinutes, Math.max(nextEnd, startMinutes)]);
               }}
             />
           </div>
