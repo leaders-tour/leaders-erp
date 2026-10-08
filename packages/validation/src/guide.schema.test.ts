@@ -3,6 +3,7 @@ import {
   guideLiveLocationFilterSchema,
   guideLocationFilterSchema,
   guidePlaceVisitsFilterSchema,
+  leaderstepsActiveProjectsFilterSchema,
 } from './guide.schema';
 
 describe('guideLocationFilterSchema', () => {
@@ -41,6 +42,12 @@ describe('guideLiveLocationFilterSchema', () => {
   });
 });
 
+describe('leaderstepsActiveProjectsFilterSchema', () => {
+  it('accepts all projects with a null date', () => {
+    expect(leaderstepsActiveProjectsFilterSchema.safeParse({ date: null, all: true }).success).toBe(true);
+  });
+});
+
 describe('guidePlaceVisitsFilterSchema', () => {
   it('accepts guide id with optional filters', () => {
     expect(
@@ -57,6 +64,12 @@ describe('guidePlaceVisitsFilterSchema', () => {
     expect(
       guidePlaceVisitsFilterSchema.safeParse({
         projectId: '5bd109e7-7bd3-4932-9fde-ee5b18942005',
+      }).success,
+    ).toBe(true);
+    expect(
+      guidePlaceVisitsFilterSchema.safeParse({
+        projectId: '5bd109e7-7bd3-4932-9fde-ee5b18942005',
+        date: null,
       }).success,
     ).toBe(true);
   });

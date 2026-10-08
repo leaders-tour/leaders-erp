@@ -266,7 +266,9 @@ export function DatasetPlacesPage(): JSX.Element {
           }
           actions={
             <>
-              <StubButton label="대량 관리" onStub={() => showStub('대량 관리는 다음 단계에서 구현합니다.')} />
+              <DatasetButton type="button" variant="outline" onClick={() => navigate('/dataset/places/from-project')}>
+                대량 관리
+              </DatasetButton>
               <DatasetButton
                 type="button"
                 variant="primary"

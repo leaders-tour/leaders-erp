@@ -75,7 +75,7 @@ export const guideLocationMapDateSchema = z
   .optional();
 
 export const leaderstepsActiveProjectsFilterSchema = z.object({
-  date: guideLocationMapDateSchema,
+  date: guideLocationMapDateSchema.nullable(),
   all: z.boolean().optional(),
 });
 
@@ -88,7 +88,7 @@ export const guidePlaceVisitsFilterSchema = z
   .object({
     guideId: z.string().min(1).nullable().optional(),
     projectId: z.string().uuid().nullable().optional(),
-    date: guideLocationMapDateSchema,
+    date: guideLocationMapDateSchema.nullable(),
   })
   .refine(
     (value) => Boolean(value.guideId || value.projectId || value.date),
