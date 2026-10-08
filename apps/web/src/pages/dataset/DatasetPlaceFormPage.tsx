@@ -8,8 +8,8 @@ import { parsePlaceVisitQuery, visitToPlaceDraft } from '../../features/dataset/
 import { getTodayInUlaanbaatarDateInputValue } from '../../features/guide/guide-location-map-utils';
 import {
   useGuidePlaceVisits,
-  useGuides,
   useLeaderstepsActiveProjects,
+  useLeaderstepsAuthUsers,
   type GuidePlaceVisitRow,
 } from '../../features/guide/hooks';
 import {
@@ -116,7 +116,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const [createPlace, createState] = useCreateCatalogPlace();
   const [updatePlace, updateState] = useUpdateCatalogPlace();
   const { accommodations } = useAccommodations({});
-  const { guides } = useGuides();
+  const { authUsers } = useLeaderstepsAuthUsers({ skip: isEdit });
 
   const places = placesQuery.data?.catalogPlaces ?? [];
   const regions = regionsQuery.data?.catalogRegions ?? [];
@@ -144,7 +144,6 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const [latInput, setLatInput] = useState(visitDraft ? String(visitDraft.latitude) : '');
   const [lngInput, setLngInput] = useState(visitDraft ? String(visitDraft.longitude) : '');
   const [pasteInput, setPasteInput] = useState('');
-  const [pickEnabled, setPickEnabled] = useState(!isEdit);
   const [coordSource, setCoordSource] = useState<'map' | 'input' | 'paste' | 'visit' | null>(
     visitDraft ? 'visit' : null,
   );
@@ -175,22 +174,39 @@ export function DatasetPlaceFormPage(): JSX.Element {
   );
   const [visitProjectId, setVisitProjectId] = useState(isEdit ? '' : searchParams.get('projectId') ?? '');
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
-  const visitGuides = useMemo(() => {
-    const sorted = [...guides].sort((left, right) => {
-      const linkedDelta = Number(Boolean(right.leaderstepsAuthUserId)) - Number(Boolean(left.leaderstepsAuthUserId));
-      if (linkedDelta !== 0) return linkedDelta;
+  const visitPeople = useMemo(() => {
+    const people = authUsers.map((user) => ({
+      id: user.linkedGuideId ?? user.id,
+      nameKo: user.linkedGuideNameKo ?? user.displayName ?? user.email ?? '현장 참여자',
+      nameMn: user.linkedGuideNameMn,
+      linked: Boolean(user.linkedGuideId),
+    }));
+    const unique = new Map<string, (typeof people)[number]>();
+    for (const person of people) {
+      unique.set(person.id, person);
+    }
+    const sorted = [...unique.values()].sort((left, right) => {
+      if (left.linked !== right.linked) return left.linked ? -1 : 1;
       return left.nameKo.localeCompare(right.nameKo, 'ko');
     });
     if (visitGuideId && !sorted.some((row) => row.id === visitGuideId)) {
-      return [{ id: visitGuideId, nameKo: '현장 참여자', nameMn: null as string | null }, ...sorted];
+      return [{ id: visitGuideId, nameKo: '현장 참여자', nameMn: null, linked: false }, ...sorted];
     }
     return sorted;
-  }, [guides, visitGuideId]);
-  const { projects: visitProjects } = useLeaderstepsActiveProjects(isEdit ? undefined : visitDate);
+  }, [authUsers, visitGuideId]);
+  const { projects: visitProjects } = useLeaderstepsActiveProjects(isEdit ? undefined : visitDate || undefined, {
+    all: !isEdit && !visitDate,
+  });
+  const visitProjectOptions = useMemo(() => {
+    if (visitProjectId && !visitProjects.some((row) => row.id === visitProjectId)) {
+      return [{ id: visitProjectId, name: '선택한 프로젝트' }, ...visitProjects];
+    }
+    return visitProjects;
+  }, [visitProjectId, visitProjects]);
   const { placeVisits, loading: visitLoading, errorMessage: visitError } = useGuidePlaceVisits({
     guideId: !isEdit && visitGuideId ? visitGuideId : undefined,
-    projectId: visitProjectId || undefined,
-    date: visitDate || undefined,
+    projectId: !isEdit && visitProjectId ? visitProjectId : undefined,
+    date: !isEdit && visitDate ? visitDate : undefined,
   });
 
   const latitude = parseOptionalNumber(latInput);
@@ -200,6 +216,18 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const isStayJudgment = visitJudgmentType === 'STAY';
   const isArea = placeType === 'AREA';
   const isLodging = placeType === 'LODGING';
+  const showLodgingSection = isLodging;
+  const showRelatedPlaces = isLodging && Boolean(accommodationId);
+  let sectionNo = 1;
+  const sectionN = {
+    basic: sectionNo++,
+    parent: sectionNo++,
+    lodging: showLodgingSection ? sectionNo++ : 0,
+    related: showRelatedPlaces ? sectionNo++ : 0,
+    location: sectionNo++,
+    judgment: sectionNo++,
+    confirm: sectionNo++,
+  };
   const { accommodation } = useAccommodation(isLodging ? accommodationId || undefined : undefined);
 
   useEffect(() => {
@@ -341,7 +369,6 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setSearchQuery('');
     setSearchResults([]);
     setFormError(null);
-    setPickEnabled(true);
     setVisitJudgmentType(defaultVisitJudgmentType(placeType));
     setRadiusInput(String(DEFAULT_VISIT_RADIUS_M));
     setStayMinutesInput(String(DEFAULT_VISIT_MIN_STAY_MINUTES));
@@ -456,7 +483,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
           <div className="grid items-start gap-4 xl:grid-cols-2">
             <div className="grid gap-4">
               <Section
-                n={1}
+                n={sectionN.basic}
                 title="기본정보"
                 extra={<span className="text-xs text-[#9A93C2]">{isEdit && editingPlace ? `ID ${editingPlace.code}` : 'ID는 저장 시 생성'}</span>}
               >
@@ -500,7 +527,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 </div>
               </Section>
 
-              <Section n={2} title={isArea ? '분류' : '상위 장소'}>
+              <Section n={sectionN.parent} title={isArea ? '분류' : '상위 장소'}>
                 {isArea ? (
                   <p className="text-xs text-[#8B83B8]">목적지는 상위 장소 없이 국가·권역만 가집니다. 다른 장소가 이 목적지를 상위로 둘 수 있습니다.</p>
                 ) : (
@@ -555,7 +582,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
               {isLodging ? (
                 <>
               <Section
-                n={3}
+                n={sectionN.lodging}
                 title="연결 숙소"
                 extra={
                   <select
@@ -620,7 +647,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
 
               {!accommodationId ? null : (
                 <Section
-                  n={8}
+                  n={sectionN.related}
                   title={`이 숙소에 연결된 기존 장소 ${relatedPlaces.length}개`}
                   extra={
                     <Link className={`text-xs font-medium ${datasetTheme.link}`} to={`/dataset/places`}>
@@ -652,7 +679,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
 
             <div className="grid gap-4">
               <Section
-                n={4}
+                n={sectionN.location}
                 title="위치 지정"
                 extra={
                   <span className="text-xs text-[#9A93C2]">
@@ -662,7 +689,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
               >
                 {!isEdit ? (
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <DatasetField label="현장 가이드">
+                    <DatasetField label="참여자">
                       <select
                         className={datasetControlClass}
                         value={visitGuideId}
@@ -671,8 +698,8 @@ export function DatasetPlaceFormPage(): JSX.Element {
                           setSelectedVisitId(null);
                         }}
                       >
-                        <option value="">가이드를 선택하면 방문 핀이 표시됩니다</option>
-                        {visitGuides.map((row) => (
+                        <option value="">전체 보기</option>
+                        {visitPeople.map((row) => (
                           <option key={row.id} value={row.id}>
                             {row.nameKo}
                             {row.nameMn ? ` · ${row.nameMn}` : ''}
@@ -686,8 +713,9 @@ export function DatasetPlaceFormPage(): JSX.Element {
                         type="date"
                         value={visitDate}
                         onChange={(event) => {
-                          setVisitDate(event.target.value);
-                          setVisitProjectId('');
+                          const nextDate = event.target.value;
+                          setVisitDate(nextDate);
+                          if (nextDate) setVisitProjectId('');
                           setSelectedVisitId(null);
                         }}
                       />
@@ -701,8 +729,8 @@ export function DatasetPlaceFormPage(): JSX.Element {
                           setSelectedVisitId(null);
                         }}
                       >
-                        <option value="">해당일 전체</option>
-                        {visitProjects.map((row) => (
+                        <option value="">{visitDate ? '해당일 전체' : '전체 프로젝트'}</option>
+                        {visitProjectOptions.map((row) => (
                           <option key={row.id} value={row.id}>
                             {row.name}
                           </option>
@@ -713,14 +741,14 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 ) : null}
                 {isEdit ? null : visitError ? (
                   <p className="text-xs text-amber-600">{visitError}</p>
-                ) : visitGuideId ? (
+                ) : !visitDate && !visitProjectId && !visitGuideId ? (
+                  <p className="text-xs text-[#8B83B8]">날짜나 프로젝트를 고르면 가이드·현장 참여자 방문 핀을 겹칩니다.</p>
+                ) : (
                   <p className="text-xs text-[#8B83B8]">
                     {visitLoading
                       ? '현장 방문을 불러오는 중…'
                       : `주황 핀 ${placeVisits.length}개 · 누르면 좌표·판정 초안을 채웁니다.`}
                   </p>
-                ) : (
-                  <p className="text-xs text-[#8B83B8]">가이드를 고르면 그날 방문 핀을 지도에 겹칩니다.</p>
                 )}
                 <div className="flex gap-2">
                   <Input
@@ -737,9 +765,6 @@ export function DatasetPlaceFormPage(): JSX.Element {
                   />
                   <DatasetButton type="button" variant="outline" onClick={handleSearch}>
                     검색
-                  </DatasetButton>
-                  <DatasetButton type="button" variant={pickEnabled ? 'primary' : 'outline'} onClick={() => setPickEnabled((value) => !value)}>
-                    지도에서 지정
                   </DatasetButton>
                 </div>
                 {searchError ? <p className="text-xs text-amber-600">{searchError}</p> : null}
@@ -760,8 +785,8 @@ export function DatasetPlaceFormPage(): JSX.Element {
                   </ul>
                 ) : null}
                 <div className="relative h-[280px] overflow-hidden rounded-xl border border-slate-100">
-                  {pickEnabled && latitude == null && longitude == null ? (
-                    <div className="pointer-events-none absolute inset-x-4 top-4 z-10 rounded-lg bg-white/90 px-3 py-2 text-xs text-slate-600 shadow-sm">
+                  {latitude == null && longitude == null ? (
+                    <div className="pointer-events-none absolute left-4 right-20 top-4 z-10 rounded-lg bg-white/90 px-3 py-2 text-xs text-slate-600 shadow-sm">
                       새 지점의 위치를 지정해 주세요. 상위 좌표는 복사되지 않습니다.
                     </div>
                   ) : null}
@@ -769,7 +794,6 @@ export function DatasetPlaceFormPage(): JSX.Element {
                     relatedPlaces={relatedPlaces}
                     latitude={latitude}
                     longitude={longitude}
-                    pickEnabled={pickEnabled}
                     focus={focus}
                     visitRadiusM={visitRadiusM}
                     visits={isEdit ? [] : placeVisits}
@@ -844,7 +868,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
               </Section>
 
               <Section
-                n={5}
+                n={sectionN.judgment}
                 title="방문 판정"
                 extra={<span className="text-xs text-[#9A93C2]">좌표와 별도 저장</span>}
               >
@@ -890,7 +914,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 ) : null}
               </Section>
 
-              <Section n={9} title="저장 전 확인">
+              <Section n={sectionN.confirm} title="저장 전 확인">
                 <dl className="grid gap-2 text-sm">
                   <div className="flex justify-between gap-3">
                     <dt className="text-slate-500">장소명 · 유형</dt>

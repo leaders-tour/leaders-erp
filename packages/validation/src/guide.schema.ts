@@ -76,6 +76,7 @@ export const guideLocationMapDateSchema = z
 
 export const leaderstepsActiveProjectsFilterSchema = z.object({
   date: guideLocationMapDateSchema,
+  all: z.boolean().optional(),
 });
 
 export const guideLiveLocationFilterSchema = z.object({
@@ -83,11 +84,16 @@ export const guideLiveLocationFilterSchema = z.object({
   date: guideLocationMapDateSchema,
 });
 
-export const guidePlaceVisitsFilterSchema = z.object({
-  guideId: z.string().min(1),
-  projectId: z.string().uuid().nullable().optional(),
-  date: guideLocationMapDateSchema,
-});
+export const guidePlaceVisitsFilterSchema = z
+  .object({
+    guideId: z.string().min(1).nullable().optional(),
+    projectId: z.string().uuid().nullable().optional(),
+    date: guideLocationMapDateSchema,
+  })
+  .refine(
+    (value) => Boolean(value.guideId || value.projectId || value.date),
+    '날짜, 프로젝트, 참여자 중 하나 이상이 필요합니다.',
+  );
 
 export type GuideCreateInput = z.infer<typeof guideCreateSchema>;
 export type GuideUpdateInput = z.infer<typeof guideUpdateSchema>;

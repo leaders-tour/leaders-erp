@@ -1,5 +1,5 @@
 import { CircleF, GoogleMap, MarkerF, OverlayView, OverlayViewF, useJsApiLoader } from '@react-google-maps/api';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import { buildPlaceVisitMarkerIcon } from '../../features/guide/guide-location-map-utils';
 import type { GuidePlaceVisitRow } from '../../features/guide/hooks';
@@ -12,7 +12,6 @@ interface DatasetPlaceFormMapProps {
   relatedPlaces: CatalogPlaceRow[];
   latitude: number | null;
   longitude: number | null;
-  pickEnabled: boolean;
   focus: { lat: number; lng: number } | null;
   visitRadiusM?: number | null;
   visits?: GuidePlaceVisitRow[];
@@ -25,7 +24,6 @@ export function DatasetPlaceFormMap({
   relatedPlaces,
   latitude,
   longitude,
-  pickEnabled,
   focus,
   visitRadiusM,
   visits = [],
@@ -40,6 +38,7 @@ export function DatasetPlaceFormMap({
     region: 'KR',
   });
   const mapRef = useRef<google.maps.Map | null>(null);
+  const [satellite, setSatellite] = useState(false);
 
   const relatedMarkers = useMemo(
     () => relatedPlaces.filter((row) => row.latitude != null && row.longitude != null),
@@ -92,15 +91,16 @@ export function DatasetPlaceFormMap({
   }
 
   return (
+    <div className="relative h-full w-full">
     <GoogleMap
       mapContainerStyle={CONTAINER_STYLE}
       center={DEFAULT_CENTER}
       zoom={12}
+      mapTypeId={satellite ? 'hybrid' : 'roadmap'}
       onLoad={(map) => {
         mapRef.current = map;
       }}
       onClick={(event) => {
-        if (!pickEnabled) return;
         const lat = event.latLng?.lat();
         const lng = event.latLng?.lng();
         if (lat == null || lng == null) return;
@@ -110,8 +110,10 @@ export function DatasetPlaceFormMap({
         streetViewControl: false,
         mapTypeControl: false,
         fullscreenControl: false,
-        draggableCursor: pickEnabled ? 'crosshair' : undefined,
-        styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }],
+        draggableCursor: 'crosshair',
+        styles: satellite
+          ? undefined
+          : [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }],
       }}
     >
       {visits.map((visit) => {
@@ -167,5 +169,16 @@ export function DatasetPlaceFormMap({
         />
       ) : null}
     </GoogleMap>
+      <button
+        type="button"
+        className="absolute right-3 top-3 z-20 h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+        onClick={(event) => {
+          event.stopPropagation();
+          setSatellite((value) => !value);
+        }}
+      >
+        {satellite ? '지도' : '위성'}
+      </button>
+    </div>
   );
 }

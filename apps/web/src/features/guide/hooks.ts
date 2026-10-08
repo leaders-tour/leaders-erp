@@ -164,8 +164,8 @@ const LEADERSTEPS_AUTH_USERS_QUERY = gql`
 `;
 
 const LEADERSTEPS_ACTIVE_PROJECTS_QUERY = gql`
-  query LeaderstepsActiveProjects($date: String) {
-    leaderstepsActiveProjects(date: $date) {
+  query LeaderstepsActiveProjects($date: String, $all: Boolean) {
+    leaderstepsActiveProjects(date: $date, all: $all) {
       id
       name
       startedAt
@@ -200,7 +200,7 @@ const GUIDE_LIVE_LOCATIONS_QUERY = gql`
 `;
 
 const GUIDE_PLACE_VISITS_QUERY = gql`
-  query GuidePlaceVisits($guideId: ID!, $projectId: ID, $date: String) {
+  query GuidePlaceVisits($guideId: ID, $projectId: ID, $date: String) {
     guidePlaceVisits(guideId: $guideId, projectId: $projectId, date: $date) {
       id
       projectId
@@ -326,10 +326,11 @@ export function useDeleteGuide() {
   };
 }
 
-export function useLeaderstepsAuthUsers() {
+export function useLeaderstepsAuthUsers(options?: { skip?: boolean }) {
   const { data, loading, error, refetch } = useQuery<{
     leaderstepsAuthUsers: LeaderstepsAuthUserRow[];
   }>(LEADERSTEPS_AUTH_USERS_QUERY, {
+    skip: options?.skip,
     fetchPolicy: 'cache-and-network',
   });
   return {
@@ -340,11 +341,11 @@ export function useLeaderstepsAuthUsers() {
   };
 }
 
-export function useLeaderstepsActiveProjects(date?: string) {
+export function useLeaderstepsActiveProjects(date?: string, options?: { all?: boolean }) {
   const { data, loading, error, refetch } = useQuery<{
     leaderstepsActiveProjects: LeaderstepsActiveProjectRow[];
   }>(LEADERSTEPS_ACTIVE_PROJECTS_QUERY, {
-    variables: { date: date || null },
+    variables: { date: date || null, all: options?.all ?? false },
     fetchPolicy: 'cache-and-network',
   });
 
@@ -387,11 +388,11 @@ export function useGuidePlaceVisits(options?: {
     GUIDE_PLACE_VISITS_QUERY,
     {
       variables: {
-        guideId: options?.guideId ?? '',
+        guideId: options?.guideId || null,
         projectId: options?.projectId || null,
         date: options?.date || null,
       },
-      skip: !options?.guideId,
+      skip: !options?.guideId && !options?.projectId && !options?.date,
       fetchPolicy: 'cache-and-network',
     },
   );

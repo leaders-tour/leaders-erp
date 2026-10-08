@@ -209,36 +209,23 @@ export class GuideService {
       );
   }
 
-  async listLeaderstepsActiveProjects(date?: string | null) {
-    const parsed = leaderstepsActiveProjectsFilterSchema.safeParse({ date });
+  async listLeaderstepsActiveProjects(date?: string | null, all?: boolean | null) {
+    const parsed = leaderstepsActiveProjectsFilterSchema.safeParse({ date, all });
     if (!parsed.success) {
       throw createValidationError('Invalid active projects filter', parsed.error);
     }
 
-    const targetDate = parsed.data.date ?? getTodayInUlaanbaatar();
-    const { startMs, endMs } = getUlaanbaatarDayRange(targetDate);
-    const { data, error } = await getSupabaseAdminClient()
-      .from('projects')
-      .select('id,name,started_at,scheduled_ended_at,ended_at,is_active')
-      .order('started_at', { ascending: false });
+    const projects = await this.fetchLeaderstepsProjects();
+    const filtered = parsed.data.all
+      ? projects
+      : projects.filter((project) => {
+          const targetDate = parsed.data.date ?? getTodayInUlaanbaatar();
+          const { startMs, endMs } = getUlaanbaatarDayRange(targetDate);
+          return isProjectActiveOnDate(project, startMs, endMs);
+        });
 
-    if (error) {
-      throw new DomainError('EXTERNAL_SERVICE_ERROR', 'Leadersteps 프로젝트 목록을 불러오지 못했습니다.');
-    }
-
-    return (data as LeaderstepsProjectRow[])
-      .filter((project) => isProjectActiveOnDate(project, startMs, endMs))
-      .map(
-        (project): LeaderstepsActiveProjectResult => ({
-          id: project.id,
-          name: project.name,
-          startedAt: new Date(Number(project.started_at)).toISOString(),
-          scheduledEndedAt: new Date(Number(project.scheduled_ended_at)).toISOString(),
-          endedAt:
-            project.ended_at != null ? new Date(Number(project.ended_at)).toISOString() : null,
-          isActive: Boolean(project.is_active),
-        }),
-      )
+    return filtered
+      .map((project) => this.toLeaderstepsProjectResult(project))
       .sort((left, right) => left.name.localeCompare(right.name, 'ko'));
   }
 
@@ -347,35 +334,30 @@ export class GuideService {
     return results.sort((left, right) => left.guideNameKo.localeCompare(right.guideNameKo, 'ko'));
   }
 
-  async listGuidePlaceVisits(guideId: string, projectId?: string | null, date?: string | null) {
+  async listGuidePlaceVisits(
+    guideId?: string | null,
+    projectId?: string | null,
+    date?: string | null,
+  ) {
     const parsed = guidePlaceVisitsFilterSchema.safeParse({ guideId, projectId, date });
     if (!parsed.success) {
       throw createValidationError('Invalid guide place visits filter', parsed.error);
     }
 
-    const authUserId = await this.resolveLeaderstepsAuthUserId(parsed.data.guideId);
-    const activeProjects = await this.listLeaderstepsActiveProjects(parsed.data.date);
-    const filteredProjects =
-      parsed.data.projectId != null
-        ? activeProjects.filter((project) => project.id === parsed.data.projectId)
-        : activeProjects;
+    const authUserId = parsed.data.guideId
+      ? await this.resolveLeaderstepsAuthUserId(parsed.data.guideId)
+      : null;
+    const filteredProjects = await this.resolveProjectsForVisitFilter(
+      parsed.data.projectId,
+      parsed.data.date,
+    );
 
     if (filteredProjects.length === 0) {
       return [];
     }
 
     const projectById = new Map(
-      filteredProjects.map((project) => [
-        project.id,
-        {
-          id: project.id,
-          name: project.name,
-          started_at: new Date(project.startedAt).getTime(),
-          scheduled_ended_at: new Date(project.scheduledEndedAt).getTime(),
-          ended_at: project.endedAt ? new Date(project.endedAt).getTime() : null,
-          is_active: project.isActive,
-        } satisfies LeaderstepsProjectRow,
-      ]),
+      filteredProjects.map((project) => [project.id, this.toLeaderstepsProjectRow(project)]),
     );
     const projectIds = [...projectById.keys()];
     const [visits, pinImages] = await Promise.all([
@@ -436,6 +418,76 @@ export class GuideService {
     }
 
     return results.sort((left, right) => left.startedAt.localeCompare(right.startedAt));
+  }
+
+  private async resolveProjectsForVisitFilter(
+    projectId?: string | null,
+    date?: string | null,
+  ): Promise<LeaderstepsActiveProjectResult[]> {
+    if (date) {
+      const activeProjects = await this.listLeaderstepsActiveProjects(date);
+      return projectId
+        ? activeProjects.filter((project) => project.id === projectId)
+        : activeProjects;
+    }
+    if (projectId) {
+      const project = await this.fetchLeaderstepsProjectById(projectId);
+      return project ? [project] : [];
+    }
+    return this.listLeaderstepsActiveProjects(null);
+  }
+
+  private async fetchLeaderstepsProjects(): Promise<LeaderstepsProjectRow[]> {
+    const { data, error } = await getSupabaseAdminClient()
+      .from('projects')
+      .select('id,name,started_at,scheduled_ended_at,ended_at,is_active')
+      .order('started_at', { ascending: false });
+
+    if (error) {
+      throw new DomainError('EXTERNAL_SERVICE_ERROR', 'Leadersteps 프로젝트 목록을 불러오지 못했습니다.');
+    }
+
+    return (data ?? []) as LeaderstepsProjectRow[];
+  }
+
+  private async fetchLeaderstepsProjectById(
+    projectId: string,
+  ): Promise<LeaderstepsActiveProjectResult | null> {
+    const { data, error } = await getSupabaseAdminClient()
+      .from('projects')
+      .select('id,name,started_at,scheduled_ended_at,ended_at,is_active')
+      .eq('id', projectId)
+      .maybeSingle();
+
+    if (error) {
+      throw new DomainError('EXTERNAL_SERVICE_ERROR', 'Leadersteps 프로젝트를 불러오지 못했습니다.');
+    }
+    if (!data) {
+      return null;
+    }
+    return this.toLeaderstepsProjectResult(data as LeaderstepsProjectRow);
+  }
+
+  private toLeaderstepsProjectResult(project: LeaderstepsProjectRow): LeaderstepsActiveProjectResult {
+    return {
+      id: project.id,
+      name: project.name,
+      startedAt: new Date(Number(project.started_at)).toISOString(),
+      scheduledEndedAt: new Date(Number(project.scheduled_ended_at)).toISOString(),
+      endedAt: project.ended_at != null ? new Date(Number(project.ended_at)).toISOString() : null,
+      isActive: Boolean(project.is_active),
+    };
+  }
+
+  private toLeaderstepsProjectRow(project: LeaderstepsActiveProjectResult): LeaderstepsProjectRow {
+    return {
+      id: project.id,
+      name: project.name,
+      started_at: new Date(project.startedAt).getTime(),
+      scheduled_ended_at: new Date(project.scheduledEndedAt).getTime(),
+      ended_at: project.endedAt ? new Date(project.endedAt).getTime() : null,
+      is_active: project.isActive,
+    };
   }
 
   private async resolveLeaderstepsAuthUserId(guideId: string): Promise<string> {
@@ -509,7 +561,7 @@ export class GuideService {
     return allLogs;
   }
 
-  private async fetchLeaderstepsPlaceVisits(authUserId: string, projectIds: string[]) {
+  private async fetchLeaderstepsPlaceVisits(authUserId: string | null, projectIds: string[]) {
     if (projectIds.length === 0) {
       return [];
     }
@@ -519,13 +571,16 @@ export class GuideService {
     let offset = 0;
 
     while (true) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('place_visits')
         .select(
           'id,user_id,project_id,center_lat,center_lng,started_at,ended_at,duration_ms,radius_meters,point_count,pin_type,description,representative_location_log_client_id',
         )
-        .eq('user_id', authUserId)
-        .in('project_id', projectIds)
+        .in('project_id', projectIds);
+      if (authUserId) {
+        query = query.eq('user_id', authUserId);
+      }
+      const { data, error } = await query
         .order('started_at', { ascending: true })
         .range(offset, offset + PLACE_VISITS_PAGE_SIZE - 1);
 
@@ -544,7 +599,7 @@ export class GuideService {
     return allVisits;
   }
 
-  private async fetchLeaderstepsPinImages(authUserId: string, projectIds: string[]) {
+  private async fetchLeaderstepsPinImages(authUserId: string | null, projectIds: string[]) {
     if (projectIds.length === 0) {
       return [];
     }
@@ -554,11 +609,14 @@ export class GuideService {
     let offset = 0;
 
     while (true) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('pin_images')
         .select('id,place_visit_id,location_log_client_id,storage_path,created_at')
-        .eq('user_id', authUserId)
-        .in('project_id', projectIds)
+        .in('project_id', projectIds);
+      if (authUserId) {
+        query = query.eq('user_id', authUserId);
+      }
+      const { data, error } = await query
         .order('created_at', { ascending: true })
         .range(offset, offset + PIN_IMAGES_PAGE_SIZE - 1);
 

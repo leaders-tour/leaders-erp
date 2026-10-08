@@ -45,9 +45,9 @@ export const guideResolver = {
     },
     leaderstepsActiveProjects: (
       _parent: unknown,
-      args: { date?: string | null },
+      args: { date?: string | null; all?: boolean | null },
       ctx: AppContext,
-    ) => new GuideService(ctx.prisma).listLeaderstepsActiveProjects(args.date),
+    ) => new GuideService(ctx.prisma).listLeaderstepsActiveProjects(args.date, args.all),
     guideLiveLocations: (
       _parent: unknown,
       args: { projectId?: string | null; date?: string | null },
@@ -55,7 +55,7 @@ export const guideResolver = {
     ) => new GuideService(ctx.prisma).listGuideLiveLocations(args.projectId, args.date),
     guidePlaceVisits: (
       _parent: unknown,
-      args: { guideId: string; projectId?: string | null; date?: string | null },
+      args: { guideId?: string | null; projectId?: string | null; date?: string | null },
       ctx: AppContext,
     ) => new GuideService(ctx.prisma).listGuidePlaceVisits(args.guideId, args.projectId, args.date),
   },

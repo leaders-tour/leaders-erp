@@ -130,9 +130,9 @@ input GuideUpdateInput {
 
 extend type Query {
   leaderstepsAuthUsers: [LeaderstepsAuthUser!]!
-  leaderstepsActiveProjects(date: String): [LeaderstepsActiveProject!]!
+  leaderstepsActiveProjects(date: String, all: Boolean): [LeaderstepsActiveProject!]!
   guideLiveLocations(projectId: ID, date: String): [GuideLiveLocation!]!
-  guidePlaceVisits(guideId: ID!, projectId: ID, date: String): [GuidePlaceVisit!]!
+  guidePlaceVisits(guideId: ID, projectId: ID, date: String): [GuidePlaceVisit!]!
 }
 
 extend type Mutation {

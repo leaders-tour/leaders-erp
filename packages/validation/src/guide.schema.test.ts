@@ -52,7 +52,16 @@ describe('guidePlaceVisitsFilterSchema', () => {
     ).toBe(true);
   });
 
-  it('requires guide id', () => {
+  it('accepts date-only or project-only filters without a person', () => {
+    expect(guidePlaceVisitsFilterSchema.safeParse({ date: '2026-07-29' }).success).toBe(true);
+    expect(
+      guidePlaceVisitsFilterSchema.safeParse({
+        projectId: '5bd109e7-7bd3-4932-9fde-ee5b18942005',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('requires at least a person, project, or date', () => {
     expect(guidePlaceVisitsFilterSchema.safeParse({}).success).toBe(false);
   });
 });
