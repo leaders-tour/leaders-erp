@@ -82,6 +82,7 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
   const [rows, setRows] = useState<ProjectVisitImportRow[]>([]);
   const [tableOpen, setTableOpen] = useState(true);
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
+  const [mapFocusNonce, setMapFocusNonce] = useState(0);
   const [geocodedIds, setGeocodedIds] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
@@ -125,6 +126,7 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
   useEffect(() => {
     setRows([]);
     setSelectedVisitId(null);
+    setMapFocusNonce(0);
     setGeocodedIds(new Set());
     setApplySummary(null);
     setApplyError(null);
@@ -414,6 +416,7 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
               rows={rows}
               catalogPlaces={places}
               selectedVisitId={selectedVisitId}
+              focusNonce={mapFocusNonce}
               onSelectVisit={setSelectedVisitId}
             />
           </div>
@@ -471,8 +474,11 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
                       return (
                         <tr
                           key={row.visitId}
-                          className={selected ? 'bg-[#F8F6FF]' : undefined}
-                          onClick={() => setSelectedVisitId(row.visitId)}
+                          className={`cursor-pointer ${selected ? 'bg-[#F8F6FF]' : 'hover:bg-slate-50'}`}
+                          onClick={() => {
+                            setSelectedVisitId(row.visitId);
+                            setMapFocusNonce((value) => value + 1);
+                          }}
                         >
                           <Td>
                             <input

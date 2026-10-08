@@ -6,6 +6,7 @@ import { GOOGLE_MAPS_API_KEY } from '../../lib/google-maps-api-key';
 
 const DEFAULT_CENTER = { lat: 47.8512, lng: 106.912 };
 const CONTAINER_STYLE = { width: '100%', height: '100%' };
+const FOCUS_ZOOM = 16;
 
 function visitMarkerIcon(selected: boolean, enabled: boolean): google.maps.Icon {
   const size = selected ? 38 : 34;
@@ -28,6 +29,7 @@ interface DatasetProjectVisitImportMapProps {
   rows: ProjectVisitImportRow[];
   catalogPlaces: CatalogPlaceRow[];
   selectedVisitId: string | null;
+  focusNonce?: number;
   onSelectVisit: (visitId: string) => void;
 }
 
@@ -35,6 +37,7 @@ export function DatasetProjectVisitImportMap({
   rows,
   catalogPlaces,
   selectedVisitId,
+  focusNonce = 0,
   onSelectVisit,
 }: DatasetProjectVisitImportMapProps): JSX.Element {
   const { isLoaded, loadError } = useJsApiLoader({
@@ -44,6 +47,8 @@ export function DatasetProjectVisitImportMap({
     region: 'KR',
   });
   const mapRef = useRef<google.maps.Map | null>(null);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
   const [satellite, setSatellite] = useState(false);
 
   const relatedMarkers = useMemo(
@@ -69,6 +74,15 @@ export function DatasetProjectVisitImportMap({
     }
     map.fitBounds(bounds, 64);
   }, [relatedMarkers, rows]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !selectedVisitId || focusNonce === 0) return;
+    const row = rowsRef.current.find((item) => item.visitId === selectedVisitId);
+    if (!row) return;
+    map.panTo({ lat: row.latitude, lng: row.longitude });
+    map.setZoom(FOCUS_ZOOM);
+  }, [focusNonce, selectedVisitId]);
 
   if (!GOOGLE_MAPS_API_KEY) {
     return (
