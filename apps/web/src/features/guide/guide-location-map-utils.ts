@@ -84,6 +84,54 @@ export function normalizeGuideMapPath(
     .map((point) => ({ lat: point.latitude, lng: point.longitude }));
 }
 
+const LAT_METERS = 111_320;
+
+function metersBetween(left: GuideMapLatLng, right: GuideMapLatLng): number {
+  const latMidRad = ((left.lat + right.lat) / 2) * (Math.PI / 180);
+  const dLat = (left.lat - right.lat) * LAT_METERS;
+  const dLng = (left.lng - right.lng) * LAT_METERS * Math.cos(latMidRad);
+  return Math.hypot(dLat, dLng);
+}
+
+export function simplifyGuideMapPath(
+  path: GuideMapLatLng[],
+  options?: { minDistanceMeters?: number; maxPoints?: number },
+): GuideMapLatLng[] {
+  if (path.length <= 2) {
+    return path;
+  }
+
+  const minDistanceMeters = options?.minDistanceMeters ?? 75;
+  const maxPoints = options?.maxPoints ?? 2500;
+  const thinned: GuideMapLatLng[] = [path[0]!];
+
+  for (let index = 1; index < path.length - 1; index += 1) {
+    const point = path[index]!;
+    const last = thinned[thinned.length - 1]!;
+    if (metersBetween(last, point) >= minDistanceMeters) {
+      thinned.push(point);
+    }
+  }
+
+  const end = path[path.length - 1]!;
+  const last = thinned[thinned.length - 1]!;
+  if (last.lat !== end.lat || last.lng !== end.lng) {
+    thinned.push(end);
+  }
+
+  if (thinned.length <= maxPoints) {
+    return thinned;
+  }
+
+  const stride = (thinned.length - 1) / (maxPoints - 1);
+  const sampled: GuideMapLatLng[] = [];
+  for (let index = 0; index < maxPoints - 1; index += 1) {
+    sampled.push(thinned[Math.round(index * stride)]!);
+  }
+  sampled.push(thinned[thinned.length - 1]!);
+  return sampled;
+}
+
 export const GUIDE_PATH_ARROW_REPEAT = '280px';
 export const GUIDE_PATH_TIME_FILTER_DEBOUNCE_MS = 250;
 

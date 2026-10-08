@@ -235,11 +235,10 @@ export class GuideService {
       throw createValidationError('Invalid guide live location filter', parsed.error);
     }
 
-    const activeProjects = await this.listLeaderstepsActiveProjects(parsed.data.date);
-    const filteredProjects =
-      parsed.data.projectId != null
-        ? activeProjects.filter((project) => project.id === parsed.data.projectId)
-        : activeProjects;
+    const filteredProjects = await this.resolveProjectsForVisitFilter(
+      parsed.data.projectId,
+      parsed.data.date,
+    );
 
     if (filteredProjects.length === 0) {
       return [];

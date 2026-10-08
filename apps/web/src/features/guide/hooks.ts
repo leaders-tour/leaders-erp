@@ -357,7 +357,12 @@ export function useLeaderstepsActiveProjects(date?: string, options?: { all?: bo
   };
 }
 
-export function useGuideLiveLocations(options?: { projectId?: string; date?: string }) {
+export function useGuideLiveLocations(options?: {
+  projectId?: string;
+  date?: string;
+  skip?: boolean;
+  pollInterval?: number;
+}) {
   const { data, loading, error, refetch, networkStatus } = useQuery<{
     guideLiveLocations: GuideLiveLocationRow[];
   }>(GUIDE_LIVE_LOCATIONS_QUERY, {
@@ -365,9 +370,10 @@ export function useGuideLiveLocations(options?: { projectId?: string; date?: str
       projectId: options?.projectId || null,
       date: options?.date || null,
     },
+    skip: options?.skip,
     fetchPolicy: 'cache-and-network',
     notifyOnNetworkStatusChange: true,
-    pollInterval: 60_000,
+    pollInterval: options?.skip ? 0 : (options?.pollInterval ?? 60_000),
   });
 
   return {

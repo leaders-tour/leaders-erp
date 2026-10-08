@@ -1,7 +1,15 @@
-import { GoogleMap, MarkerF, OverlayView, OverlayViewF, useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, MarkerF, OverlayView, OverlayViewF, useGoogleMap, useJsApiLoader } from '@react-google-maps/api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import type { ProjectVisitImportRow } from '../../features/dataset/project-visit-import';
+import {
+  canDrawGuidePath,
+  getGuidePathColor,
+  normalizeGuideMapPath,
+  simplifyGuideMapPath,
+  type GuideMapLatLng,
+} from '../../features/guide/guide-location-map-utils';
+import type { GuideLiveLocationRow } from '../../features/guide/hooks';
 import { GOOGLE_MAPS_API_KEY } from '../../lib/google-maps-api-key';
 
 const DEFAULT_CENTER = { lat: 47.8512, lng: 106.912 };
@@ -25,9 +33,96 @@ function visitMarkerIcon(selected: boolean, enabled: boolean): google.maps.Icon 
   };
 }
 
+function createImportMapPathOverlay(path: GuideMapLatLng[], color: string): google.maps.OverlayView {
+  class ImportMapPathOverlay extends google.maps.OverlayView {
+    private div: HTMLDivElement | null = null;
+
+    onAdd() {
+      this.div = document.createElement('div');
+      this.div.style.position = 'absolute';
+      this.div.style.pointerEvents = 'none';
+      this.getPanes()?.overlayLayer.appendChild(this.div);
+    }
+
+    draw() {
+      const projection = this.getProjection();
+      const map = this.getMap();
+      const div = this.div;
+      const bounds = map?.getBounds();
+      if (!projection || !div || !bounds) return;
+
+      const southWest = projection.fromLatLngToDivPixel(bounds.getSouthWest());
+      const northEast = projection.fromLatLngToDivPixel(bounds.getNorthEast());
+      if (!southWest || !northEast) return;
+
+      const left = Math.min(southWest.x, northEast.x);
+      const top = Math.min(southWest.y, northEast.y);
+      const width = Math.max(1, Math.abs(northEast.x - southWest.x));
+      const height = Math.max(1, Math.abs(northEast.y - southWest.y));
+      const d = path
+        .map((point, index) => {
+          const pixel = projection.fromLatLngToDivPixel(new google.maps.LatLng(point.lat, point.lng));
+          if (!pixel) return '';
+          return `${index === 0 ? 'M' : 'L'}${(pixel.x - left).toFixed(1)},${(pixel.y - top).toFixed(1)}`;
+        })
+        .join(' ');
+
+      div.style.left = `${left}px`;
+      div.style.top = `${top}px`;
+      div.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><path d="${d}" fill="none" stroke="${color}" stroke-width="5" stroke-opacity="0.92" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+    }
+
+    onRemove() {
+      this.div?.remove();
+      this.div = null;
+    }
+  }
+
+  return new ImportMapPathOverlay();
+}
+
+function MapInstanceBinder({
+  mapRef,
+}: {
+  mapRef: { current: google.maps.Map | null };
+}): null {
+  const map = useGoogleMap();
+  useEffect(() => {
+    mapRef.current = map;
+  }, [map, mapRef]);
+  return null;
+}
+
+function ImportMapPathsLayer({
+  layers,
+}: {
+  layers: Array<{ guideId: string; path: GuideMapLatLng[]; color: string }>;
+}): null {
+  const map = useGoogleMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const overlays = layers
+      .filter((layer) => canDrawGuidePath(layer.path))
+      .map((layer) => {
+        const overlay = createImportMapPathOverlay(layer.path, layer.color);
+        overlay.setMap(map);
+        return overlay;
+      });
+    return () => {
+      for (const overlay of overlays) {
+        overlay.setMap(null);
+      }
+    };
+  }, [layers, map]);
+
+  return null;
+}
+
 interface DatasetProjectVisitImportMapProps {
   rows: ProjectVisitImportRow[];
   catalogPlaces: CatalogPlaceRow[];
+  locations?: GuideLiveLocationRow[];
   selectedVisitId: string | null;
   focusNonce?: number;
   onSelectVisit: (visitId: string) => void;
@@ -36,6 +131,7 @@ interface DatasetProjectVisitImportMapProps {
 export function DatasetProjectVisitImportMap({
   rows,
   catalogPlaces,
+  locations = [],
   selectedVisitId,
   focusNonce = 0,
   onSelectVisit,
@@ -51,28 +147,39 @@ export function DatasetProjectVisitImportMap({
   rowsRef.current = rows;
   const [satellite, setSatellite] = useState(false);
 
+  const pathLayers = useMemo(
+    () =>
+      locations.map((location, index) => ({
+        guideId: location.guideId,
+        path: simplifyGuideMapPath(normalizeGuideMapPath(location.path)),
+        color: getGuidePathColor(index),
+      })),
+    [locations],
+  );
+
   const relatedMarkers = useMemo(
     () => catalogPlaces.filter((row) => row.latitude != null && row.longitude != null),
     [catalogPlaces],
   );
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || typeof google === 'undefined') return;
-    if (rows.length > 0) {
-      const bounds = new google.maps.LatLngBounds();
-      for (const row of rows) {
-        bounds.extend({ lat: row.latitude, lng: row.longitude });
-      }
-      map.fitBounds(bounds, 48);
+    const mapInstance = mapRef.current;
+    if (!mapInstance || typeof google === 'undefined') return;
+    const bounds = new google.maps.LatLngBounds();
+    let hasPoint = false;
+    for (const row of rows) {
+      bounds.extend({ lat: row.latitude, lng: row.longitude });
+      hasPoint = true;
+    }
+    if (hasPoint) {
+      mapInstance.fitBounds(bounds, 48);
       return;
     }
     if (relatedMarkers.length === 0) return;
-    const bounds = new google.maps.LatLngBounds();
     for (const row of relatedMarkers) {
       bounds.extend({ lat: row.latitude as number, lng: row.longitude as number });
     }
-    map.fitBounds(bounds, 64);
+    mapInstance.fitBounds(bounds, 64);
   }, [relatedMarkers, rows]);
 
   useEffect(() => {
@@ -107,8 +214,8 @@ export function DatasetProjectVisitImportMap({
         center={DEFAULT_CENTER}
         zoom={12}
         mapTypeId={satellite ? 'hybrid' : 'roadmap'}
-        onLoad={(map) => {
-          mapRef.current = map;
+        onLoad={(nextMap) => {
+          mapRef.current = nextMap;
         }}
         options={{
           streetViewControl: false,
@@ -119,6 +226,8 @@ export function DatasetProjectVisitImportMap({
             : [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }],
         }}
       >
+        <MapInstanceBinder mapRef={mapRef} />
+        <ImportMapPathsLayer layers={pathLayers} />
         {relatedMarkers.map((row) => (
           <OverlayViewF
             key={row.id}

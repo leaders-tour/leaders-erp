@@ -37,7 +37,7 @@ import {
   datasetControlClass,
 } from '../../features/dataset/ui';
 import { formatUlaanbaatarProjectDate } from '../../features/guide/guide-location-map-utils';
-import { useGuidePlaceVisits, useLeaderstepsActiveProjects } from '../../features/guide/hooks';
+import { useGuideLiveLocations, useGuidePlaceVisits, useLeaderstepsActiveProjects } from '../../features/guide/hooks';
 import { DatasetProjectVisitImportMap } from './DatasetProjectVisitImportMap';
 
 const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
@@ -93,6 +93,11 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
   const routesQuery = useCatalogRoutes();
   const { accommodations } = useAccommodations({});
   const visitsQuery = useGuidePlaceVisits({ projectId: projectId || undefined });
+  const locationsQuery = useGuideLiveLocations({
+    projectId: projectId || undefined,
+    skip: !projectId,
+    pollInterval: 0,
+  });
   const [createPlace] = useCreateCatalogPlace();
   const [createRoute] = useCreateCatalogRoute();
 
@@ -409,12 +414,17 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
         <DatasetCard>
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <h2 className="text-sm font-semibold text-slate-900">지도</h2>
-            <p className="text-xs text-[#8B83B8]">주황=포함 · 회색=제외 · 흰 점=기존 장소</p>
+            <p className="text-xs text-[#8B83B8]">
+              주황=포함 · 회색=제외 · 흰 점=기존 장소 · 선=이동 경로
+              {locationsQuery.loading ? ' · 경로 불러오는 중' : ''}
+              {locationsQuery.errorMessage ? ' · 경로를 불러오지 못했습니다' : ''}
+            </p>
           </div>
           <div className="h-[360px] xl:h-[480px]">
             <DatasetProjectVisitImportMap
               rows={rows}
               catalogPlaces={places}
+              locations={locationsQuery.locations}
               selectedVisitId={selectedVisitId}
               focusNonce={mapFocusNonce}
               onSelectVisit={setSelectedVisitId}

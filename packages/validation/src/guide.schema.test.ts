@@ -31,6 +31,12 @@ describe('guideLiveLocationFilterSchema', () => {
       }).success,
     ).toBe(true);
     expect(guideLiveLocationFilterSchema.safeParse({}).success).toBe(true);
+    expect(
+      guideLiveLocationFilterSchema.safeParse({
+        projectId: '5bd109e7-7bd3-4932-9fde-ee5b18942005',
+        date: null,
+      }).success,
+    ).toBe(true);
   });
 
   it('rejects invalid date values', () => {

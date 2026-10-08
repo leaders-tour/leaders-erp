@@ -81,7 +81,7 @@ export const leaderstepsActiveProjectsFilterSchema = z.object({
 
 export const guideLiveLocationFilterSchema = z.object({
   projectId: z.string().uuid().nullable().optional(),
-  date: guideLocationMapDateSchema,
+  date: guideLocationMapDateSchema.nullable(),
 });
 
 export const guidePlaceVisitsFilterSchema = z

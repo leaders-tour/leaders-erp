@@ -4,6 +4,7 @@ import {
   buildGuidePathPolylineOptions,
   canDrawGuidePath,
   GUIDE_PATH_ARROW_REPEAT,
+  simplifyGuideMapPath,
 } from './guide-location-map-utils';
 
 beforeAll(() => {
@@ -65,6 +66,36 @@ describe('buildGuideMapPathLayerKey', () => {
 
     expect(key).toBe('guide-1:#4f46e5:1:0:3:47.800000,107.400000:47.820000,107.530000');
     expect(key).not.toContain('47.810000');
+  });
+});
+
+describe('simplifyGuideMapPath', () => {
+  it('keeps endpoints and drops nearby duplicates', () => {
+    const simplified = simplifyGuideMapPath(
+      [
+        { lat: 47.8, lng: 107.4 },
+        { lat: 47.80001, lng: 107.40001 },
+        { lat: 47.9, lng: 107.5 },
+      ],
+      { minDistanceMeters: 75 },
+    );
+
+    expect(simplified).toEqual([
+      { lat: 47.8, lng: 107.4 },
+      { lat: 47.9, lng: 107.5 },
+    ]);
+  });
+
+  it('caps the number of vertices for long tracks', () => {
+    const path = Array.from({ length: 400 }, (_, index) => ({
+      lat: 47.8 + index * 0.01,
+      lng: 107.4 + index * 0.01,
+    }));
+    const simplified = simplifyGuideMapPath(path, { minDistanceMeters: 1, maxPoints: 20 });
+
+    expect(simplified).toHaveLength(20);
+    expect(simplified[0]).toEqual(path[0]);
+    expect(simplified[simplified.length - 1]).toEqual(path[path.length - 1]);
   });
 });
 
