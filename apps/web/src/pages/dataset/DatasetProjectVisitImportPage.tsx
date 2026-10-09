@@ -15,6 +15,7 @@ import {
   VISIT_JUDGMENT_TYPE_LABEL,
   type CatalogPlaceType,
 } from '../../features/dataset/labels';
+import { looksLikeAdminName, nearbyGooglePlaceNames } from '../../features/dataset/google-place-name';
 import {
   blockedImportRows,
   buildPlaceCreateInput,
@@ -150,37 +151,52 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
 
   useEffect(() => {
     if (typeof google === 'undefined') return;
-    const targets = rows.filter((row) => !row.name.trim() && !geocodedIds.has(row.visitId));
+    const targets = rows.filter((row) => {
+      if (geocodedIds.has(row.visitId)) return false;
+      const name = row.name.trim();
+      return !name || looksLikeAdminName(name);
+    });
     if (targets.length === 0) return;
     let cancelled = false;
-    const geocoder = new google.maps.Geocoder();
+    const geocoder = typeof google.maps?.Geocoder === 'function' ? new google.maps.Geocoder() : null;
 
     void (async () => {
       for (const row of targets) {
         if (cancelled) return;
-        const picked = await new Promise<{ name: string | null; country: string | null }>((resolve) => {
-          geocoder.geocode({ location: { lat: row.latitude, lng: row.longitude } }, (results, status) => {
-            if (status !== 'OK' || !results?.length) {
-              resolve({ name: null, country: null });
-              return;
-            }
-            resolve(pickNameFromGeocodeResults(results));
-          });
+        const nearby = await nearbyGooglePlaceNames({
+          lat: row.latitude,
+          lng: row.longitude,
+          lodgingOnly: row.placeType === 'LODGING',
         });
+        const placeName = nearby.ok ? nearby.places[0]?.name ?? null : null;
+        let country: string | null = null;
+        if (!row.country && geocoder) {
+          country = await new Promise((resolve) => {
+            geocoder.geocode({ location: { lat: row.latitude, lng: row.longitude } }, (results, status) => {
+              if (status !== 'OK' || !results?.length) {
+                resolve(null);
+                return;
+              }
+              resolve(pickNameFromGeocodeResults(results).country);
+            });
+          });
+        }
         if (cancelled) return;
         setGeocodedIds((current) => {
           const next = new Set(current);
           next.add(row.visitId);
           return next;
         });
-        if (!picked.name && !picked.country) continue;
+        if (!placeName && !country) continue;
         setRows((current) =>
           current.map((item) => {
             if (item.visitId !== row.visitId) return item;
+            const currentName = item.name.trim();
+            const replaceName = !currentName || looksLikeAdminName(currentName);
             return {
               ...item,
-              name: item.name.trim() ? item.name : picked.name ?? '',
-              country: item.country || picked.country,
+              name: replaceName && placeName ? placeName : item.name,
+              country: item.country || country,
             };
           }),
         );

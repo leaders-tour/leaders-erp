@@ -1,3 +1,4 @@
+import { looksLikeAdminName } from './google-place-name';
 import type { CatalogPlaceType, CatalogVisitJudgmentType } from './labels';
 import { visitToPlaceDraft, type PlaceVisitDraftSource } from './place-visit-draft';
 
@@ -189,7 +190,7 @@ export function suggestImportRow(
     visitRadiusM: draft.visitRadiusM,
     visitJudgmentType: draft.visitJudgmentType,
     visitMinStayMinutes: draft.visitMinStayMinutes,
-    name: draft.name || reuse?.place.name || '',
+    name: draft.name && !looksLikeAdminName(draft.name) ? draft.name : reuse?.place.name || '',
     placeType: draft.placeType,
     parentPlaceId: area?.place.id ?? null,
     parentDistanceM: area ? Math.round(area.distanceM) : null,
@@ -285,23 +286,20 @@ export function pickNameFromGeocodeResults(
     'tourist_attraction',
     'park',
     'natural_feature',
-    'locality',
-    'administrative_area_level_2',
   ];
 
   const preferred = results.find((result) =>
     (result.types ?? []).some((type) => preferredTypes.includes(type)),
   );
-  const chosen = preferred ?? results[0];
-  if (!chosen) return { name: null, country };
-  const locality =
-    chosen.address_components?.find((component) =>
-      component.types.some((type) => type === 'locality' || type === 'establishment'),
+  if (!preferred) return { name: null, country };
+  const establishment =
+    preferred.address_components?.find((component) =>
+      component.types.some((type) => type === 'establishment' || type === 'point_of_interest' || type === 'lodging'),
     )?.long_name ?? null;
-  const formatted = chosen.formatted_address?.split(',')[0]?.trim() ?? null;
-
+  const formatted = preferred.formatted_address?.split(',')[0]?.trim() ?? null;
+  const name = establishment || formatted;
   return {
-    name: locality || formatted,
+    name: name && !looksLikeAdminName(name) ? name : null,
     country,
   };
 }

@@ -4,6 +4,13 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAccommodation, useAccommodations } from '../../features/accommodation/hooks';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import { useCatalogPlaces, useCatalogRegions, useCreateCatalogPlace, useUpdateCatalogPlace } from '../../features/dataset/hooks';
+import {
+  findGooglePlaceNames,
+  getGooglePlaceById,
+  looksLikeAdminName,
+  nearbyGooglePlaceNames,
+  type GooglePlaceNameCandidate,
+} from '../../features/dataset/google-place-name';
 import { parsePlaceVisitQuery, visitToPlaceDraft } from '../../features/dataset/place-visit-draft';
 import { getTodayInUlaanbaatarDateInputValue } from '../../features/guide/guide-location-map-utils';
 import {
@@ -80,6 +87,42 @@ function descendantIds(places: CatalogPlaceRow[], rootId: string): Set<string> {
   return found;
 }
 
+function uniqueKeepFirst(
+  first: GooglePlaceNameCandidate,
+  rest: GooglePlaceNameCandidate[],
+): GooglePlaceNameCandidate[] {
+  return [first, ...rest.filter((row) => row.name !== first.name || row.lat !== first.lat || row.lng !== first.lng)].slice(
+    0,
+    8,
+  );
+}
+
+function NearbyPlaceButtons({
+  places,
+  onPick,
+}: {
+  places: GooglePlaceNameCandidate[];
+  onPick: (row: GooglePlaceNameCandidate) => void;
+}): JSX.Element | null {
+  if (places.length === 0) return null;
+  return (
+    <ul className="grid gap-1">
+      {places.map((row) => (
+        <li key={`${row.name}-${row.lat}-${row.lng}`}>
+          <button
+            type="button"
+            className="w-full rounded-lg border border-slate-100 px-3 py-2 text-left text-xs hover:bg-[#F8F6FF]"
+            onClick={() => onPick(row)}
+          >
+            {row.name}
+            {row.address ? <span className="mt-0.5 block text-[#9A93C2]">{row.address}</span> : null}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Section({
   n,
   title,
@@ -127,7 +170,9 @@ export function DatasetPlaceFormPage(): JSX.Element {
 
   const visitQuery = !isEdit ? parsePlaceVisitQuery(searchParams) : null;
   const visitDraft = visitQuery ? visitToPlaceDraft(visitQuery) : null;
-  const [name, setName] = useState(visitDraft?.name ?? '');
+  const [name, setName] = useState(
+    visitDraft?.name && !looksLikeAdminName(visitDraft.name) ? visitDraft.name : '',
+  );
   const [displayName, setDisplayName] = useState('');
   const requestedType = searchParams.get('type') as CatalogPlaceType | null;
   const initialType =
@@ -148,8 +193,13 @@ export function DatasetPlaceFormPage(): JSX.Element {
     visitDraft ? 'visit' : null,
   );
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Array<{ label: string; lat: number; lng: number }>>([]);
+  const [searchResults, setSearchResults] = useState<Array<{ label: string; name: string | null; lat: number; lng: number }>>(
+    [],
+  );
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState<GooglePlaceNameCandidate[]>([]);
+  const [nearbyError, setNearbyError] = useState<string | null>(null);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
   const [focus, setFocus] = useState<{ lat: number; lng: number } | null>(
     visitDraft ? { lat: visitDraft.latitude, lng: visitDraft.longitude } : null,
   );
@@ -229,6 +279,30 @@ export function DatasetPlaceFormPage(): JSX.Element {
     confirm: sectionNo++,
   };
   const { accommodation } = useAccommodation(isLodging ? accommodationId || undefined : undefined);
+
+  const visitLookupLat = visitDraft?.latitude;
+  const visitLookupLng = visitDraft?.longitude;
+  const visitLookupLodging = visitDraft?.placeType === 'LODGING';
+  useEffect(() => {
+    if (visitLookupLat == null || visitLookupLng == null) return;
+    let cancelled = false;
+    void nearbyGooglePlaceNames({
+      lat: visitLookupLat,
+      lng: visitLookupLng,
+      lodgingOnly: visitLookupLodging,
+    }).then((result) => {
+      if (cancelled) return;
+      if (!result.ok) {
+        setNearbyPlaces([]);
+        setNearbyError(result.error === 'unavailable' ? '미연동' : '자료 없음');
+        return;
+      }
+      setNearbyPlaces(result.places);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [visitLookupLat, visitLookupLng, visitLookupLodging]);
 
   useEffect(() => {
     if (!isEdit || !editingPlace || hydrated) return;
@@ -315,43 +389,105 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const saving = createState.loading || updateState.loading;
   const canSave = Boolean(name.trim()) && !coordPairError && !judgmentError;
 
-  const applyCoords = (lat: number, lng: number, source: 'map' | 'input' | 'paste') => {
+  const applyCoords = (lat: number, lng: number, source: 'map' | 'input' | 'paste' | 'visit') => {
     setLatInput(String(lat));
     setLngInput(String(lng));
     setCoordSource(source);
     setFocus({ lat, lng });
   };
 
+  const applyBusinessName = (nextName: string): boolean => {
+    const current = name.trim();
+    if (current && current !== nextName && !window.confirm(`장소명을 "${nextName}"(으)로 바꿀까요?`)) {
+      return false;
+    }
+    setName(nextName);
+    return true;
+  };
+
+  const lookupNearbyPlaces = async (lat: number, lng: number, lodgingOnly = placeType === 'LODGING') => {
+    setNearbyLoading(true);
+    setNearbyError(null);
+    const result = await nearbyGooglePlaceNames({ lat, lng, lodgingOnly });
+    setNearbyLoading(false);
+    if (!result.ok) {
+      setNearbyPlaces([]);
+      setNearbyError(result.error === 'unavailable' ? '미연동' : '자료 없음');
+      return;
+    }
+    setNearbyPlaces(result.places);
+  };
+
+  const applyPlaceCandidate = (row: { name: string | null; lat: number; lng: number }) => {
+    if (row.name && !applyBusinessName(row.name)) return;
+    applyCoords(row.lat, row.lng, 'map');
+  };
+
+  const handleNearbyPlaces = async () => {
+    if (latitude == null || longitude == null) return;
+    await lookupNearbyPlaces(latitude, longitude);
+  };
+
+  const handleMapPoi = async (placeId: string, lat: number, lng: number) => {
+    applyCoords(lat, lng, 'map');
+    const result = await getGooglePlaceById(placeId);
+    if (result.ok) {
+      applyPlaceCandidate(result.place);
+      setNearbyPlaces((current) => uniqueKeepFirst(result.place, current));
+      setNearbyError(null);
+      return;
+    }
+    await lookupNearbyPlaces(lat, lng);
+  };
+
   const applyVisitDraft = (visit: GuidePlaceVisitRow) => {
     const draft = visitToPlaceDraft(visit);
     setSelectedVisitId(visit.id);
-    setLatInput(String(draft.latitude));
-    setLngInput(String(draft.longitude));
-    setCoordSource('visit');
-    setFocus({ lat: draft.latitude, lng: draft.longitude });
+    applyCoords(draft.latitude, draft.longitude, 'visit');
     setVisitJudgmentType(draft.visitJudgmentType);
     setRadiusInput(String(draft.visitRadiusM));
     setStayMinutesInput(draft.visitMinStayMinutes != null ? String(draft.visitMinStayMinutes) : '');
     setPlaceType(draft.placeType);
     if (draft.placeType === 'AREA') setParentPlaceId('');
     if (draft.placeType !== 'LODGING') setAccommodationId('');
-    if (draft.name && !name.trim()) setName(draft.name);
+    if (draft.name && !name.trim() && !looksLikeAdminName(draft.name)) setName(draft.name);
+    void lookupNearbyPlaces(draft.latitude, draft.longitude, draft.placeType === 'LODGING');
   };
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     const query = searchQuery.trim();
-    if (!query || typeof google === 'undefined') return;
+    if (!query) return;
     setSearchError(null);
+    setSearchResults([]);
+    const bias = latitude != null && longitude != null ? { lat: latitude, lng: longitude } : null;
+    const places = await findGooglePlaceNames({ query, bias });
+    if (places.ok) {
+      setSearchResults(
+        places.places.map((row) => ({
+          label: row.address ? `${row.name} · ${row.address}` : row.name,
+          name: row.name,
+          lat: row.lat,
+          lng: row.lng,
+        })),
+      );
+      return;
+    }
+
+    if (typeof google === 'undefined' || !google.maps?.Geocoder) {
+      setSearchError(places.error === 'unavailable' ? '미연동' : '자료 없음');
+      return;
+    }
     const geocoder = new google.maps.Geocoder();
     void geocoder.geocode({ address: query }, (results, statusCode) => {
       if (statusCode !== 'OK' || !results?.length) {
         setSearchResults([]);
-        setSearchError('검색 결과가 없습니다. 조회만 했으며 좌표는 바뀌지 않았습니다.');
+        setSearchError(places.error === 'unavailable' ? '미연동' : '자료 없음');
         return;
       }
       setSearchResults(
         results.slice(0, 5).map((row) => ({
           label: row.formatted_address,
+          name: null,
           lat: row.geometry.location.lat(),
           lng: row.geometry.location.lng(),
         })),
@@ -368,6 +504,8 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setCoordSource(null);
     setSearchQuery('');
     setSearchResults([]);
+    setNearbyPlaces([]);
+    setNearbyError(null);
     setFormError(null);
     setVisitJudgmentType(defaultVisitJudgmentType(placeType));
     setRadiusInput(String(DEFAULT_VISIT_RADIUS_M));
@@ -488,8 +626,25 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 extra={<span className="text-xs text-[#9A93C2]">{isEdit && editingPlace ? `ID ${editingPlace.code}` : 'ID는 저장 시 생성'}</span>}
               >
                 <DatasetField label="장소명">
-                  <Input className={datasetControlClass} value={name} onChange={(event) => setName(event.target.value)} placeholder="예: A캠프 추가 픽업 지점" />
+                  <div className="flex gap-2">
+                    <Input
+                      className={`${datasetControlClass} min-w-0 flex-1`}
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="예: A캠프 추가 픽업 지점"
+                    />
+                    <DatasetButton
+                      type="button"
+                      variant="outline"
+                      disabled={latitude == null || longitude == null || nearbyLoading}
+                      onClick={() => void handleNearbyPlaces()}
+                    >
+                      {nearbyLoading ? '찾는 중…' : '근처 상호 찾기'}
+                    </DatasetButton>
+                  </div>
                 </DatasetField>
+                {nearbyError ? <p className="text-xs text-amber-600">{nearbyError}</p> : null}
+                <NearbyPlaceButtons places={nearbyPlaces} onPick={applyPlaceCandidate} />
                 <DatasetField label="고객 표시명">
                   <Input
                     className={datasetControlClass}
@@ -763,7 +918,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                       }
                     }}
                   />
-                  <DatasetButton type="button" variant="outline" onClick={handleSearch}>
+                  <DatasetButton type="button" variant="outline" onClick={() => void handleSearch()}>
                     검색
                   </DatasetButton>
                 </div>
@@ -775,10 +930,12 @@ export function DatasetPlaceFormPage(): JSX.Element {
                         <button
                           type="button"
                           className="w-full rounded-lg border border-slate-100 px-3 py-2 text-left text-xs hover:bg-[#F8F6FF]"
-                          onClick={() => applyCoords(row.lat, row.lng, 'map')}
+                          onClick={() => applyPlaceCandidate(row)}
                         >
                           {row.label}
-                          <span className="mt-0.5 block text-[#9A93C2]">이 위치 사용</span>
+                          <span className="mt-0.5 block text-[#9A93C2]">
+                            {row.name ? '상호 · 이 위치 사용' : '이 위치 사용'}
+                          </span>
                         </button>
                       </li>
                     ))}
@@ -798,9 +955,15 @@ export function DatasetPlaceFormPage(): JSX.Element {
                     visitRadiusM={visitRadiusM}
                     visits={isEdit ? [] : placeVisits}
                     selectedVisitId={selectedVisitId}
-                    onPick={(lat, lng) => applyCoords(lat, lng, 'map')}
+                    onPick={(lat, lng) => {
+                      applyCoords(lat, lng, 'map');
+                      void lookupNearbyPlaces(lat, lng);
+                    }}
+                    onPickPoi={(placeId, lat, lng) => void handleMapPoi(placeId, lat, lng)}
                     onSelectVisit={applyVisitDraft}
                   />
+                  {nearbyLoading ? <p className="text-xs text-[#8B83B8]">근처 상호를 찾는 중…</p> : null}
+                  <NearbyPlaceButtons places={nearbyPlaces} onPick={applyPlaceCandidate} />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
                   <DatasetField label="위도">
@@ -836,6 +999,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                           return;
                         }
                         applyCoords(parsed.lat, parsed.lng, 'paste');
+                        void lookupNearbyPlaces(parsed.lat, parsed.lng);
                         setPasteInput('');
                       }}
                     >

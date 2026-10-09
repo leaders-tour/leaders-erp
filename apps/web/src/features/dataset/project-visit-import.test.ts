@@ -159,6 +159,13 @@ describe('suggestImportRow', () => {
     expect(suggestion.country).toBe('몽골');
   });
 
+  it('ignores district labels from visit descriptions', () => {
+    const suggestion = suggestImportRow(visit({ description: 'Nalaikh District' }), [
+      place({ id: 'p-1', name: 'Energy Hills Resort', latitude: 47.85125, longitude: 106.91205 }),
+    ]);
+    expect(suggestion.name).toBe('Energy Hills Resort');
+  });
+
   it('uses the reused place name when the visit has no description', () => {
     const suggestion = suggestImportRow(visit(), [
       place({ id: 'p-1', name: '광장', latitude: 47.85125, longitude: 106.91205 }),
@@ -238,6 +245,21 @@ describe('pickNameFromGeocodeResults', () => {
       },
     ]);
     expect(picked.name).toBe('Sukhbaatar Square');
+    expect(picked.country).toBe('몽골');
+  });
+
+  it('does not use a district reverse-geocode as the place name', () => {
+    const picked = pickNameFromGeocodeResults([
+      {
+        types: ['locality', 'political'],
+        formatted_address: 'Nalaikh District, Ulaanbaatar, Mongolia',
+        address_components: [
+          { long_name: 'Nalaikh District', types: ['locality', 'political'] },
+          { long_name: '몽골', types: ['country'] },
+        ],
+      },
+    ]);
+    expect(picked.name).toBeNull();
     expect(picked.country).toBe('몽골');
   });
 });

@@ -18,6 +18,7 @@ interface DatasetPlaceFormMapProps {
   visits?: GuidePlaceVisitRow[];
   selectedVisitId?: string | null;
   onPick: (lat: number, lng: number) => void;
+  onPickPoi?: (placeId: string, lat: number, lng: number) => void;
   onSelectVisit?: (visit: GuidePlaceVisitRow) => void;
 }
 
@@ -30,6 +31,7 @@ export function DatasetPlaceFormMap({
   visits = [],
   selectedVisitId = null,
   onPick,
+  onPickPoi,
   onSelectVisit,
 }: DatasetPlaceFormMapProps): JSX.Element {
   const { isLoaded, loadError } = useGoogleMapsLoader();
@@ -100,12 +102,19 @@ export function DatasetPlaceFormMap({
         const lat = event.latLng?.lat();
         const lng = event.latLng?.lng();
         if (lat == null || lng == null) return;
+        const placeId = 'placeId' in event ? String(event.placeId ?? '') : '';
+        if (placeId && onPickPoi) {
+          event.stop();
+          onPickPoi(placeId, lat, lng);
+          return;
+        }
         onPick(lat, lng);
       }}
       options={{
         streetViewControl: false,
         mapTypeControl: false,
         fullscreenControl: false,
+        clickableIcons: true,
         draggableCursor: 'crosshair',
         styles: satellite
           ? undefined
