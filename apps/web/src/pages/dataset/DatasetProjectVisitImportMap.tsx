@@ -142,7 +142,7 @@ export function DatasetProjectVisitImportMap({
   const mapRef = useRef<google.maps.Map | null>(null);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
-  const [satellite, setSatellite] = useState(false);
+  const [satellite, setSatellite] = useState(true);
 
   const pathLayers = useMemo(
     () =>

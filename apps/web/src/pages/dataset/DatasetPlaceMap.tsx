@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import type { CatalogPlaceType } from '../../features/dataset/labels';
 import { GOOGLE_MAPS_API_KEY } from '../../lib/google-maps-api-key';
-import { useGoogleMapsLoader } from '../../lib/google-maps-loader';
+import { DEFAULT_GOOGLE_MAP_TYPE_ID, useGoogleMapsLoader } from '../../lib/google-maps-loader';
 
 const DEFAULT_CENTER = { lat: 47.8512, lng: 106.912 };
 const CONTAINER_STYLE = { width: '100%', height: '100%' };
@@ -251,8 +251,10 @@ export function DatasetPlaceMap({
           fitMapToPlaces(map, markers);
         }
       }}
+      mapTypeId={DEFAULT_GOOGLE_MAP_TYPE_ID}
       onIdle={refreshCardLayout}
       options={{
+        mapTypeId: DEFAULT_GOOGLE_MAP_TYPE_ID,
         streetViewControl: false,
         mapTypeControl: false,
         fullscreenControl: false,

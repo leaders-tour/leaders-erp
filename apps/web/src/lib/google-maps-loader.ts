@@ -9,6 +9,8 @@ export const GOOGLE_MAPS_LOADER_OPTIONS = {
   region: 'KR',
 } as const;
 
+export const DEFAULT_GOOGLE_MAP_TYPE_ID = 'hybrid';
+
 export function useGoogleMapsLoader(): { isLoaded: boolean; loadError: Error | undefined } {
   return useJsApiLoader(GOOGLE_MAPS_LOADER_OPTIONS);
 }

@@ -34,7 +34,7 @@ export function DatasetPlaceFormMap({
 }: DatasetPlaceFormMapProps): JSX.Element {
   const { isLoaded, loadError } = useGoogleMapsLoader();
   const mapRef = useRef<google.maps.Map | null>(null);
-  const [satellite, setSatellite] = useState(false);
+  const [satellite, setSatellite] = useState(true);
 
   const relatedMarkers = useMemo(
     () => relatedPlaces.filter((row) => row.latitude != null && row.longitude != null),

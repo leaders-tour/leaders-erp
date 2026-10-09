@@ -30,7 +30,7 @@ import {
   type LeaderstepsActiveProjectRow,
 } from '../features/guide/hooks';
 import { GOOGLE_MAPS_API_KEY } from '../lib/google-maps-api-key';
-import { useGoogleMapsLoader } from '../lib/google-maps-loader';
+import { DEFAULT_GOOGLE_MAP_TYPE_ID, useGoogleMapsLoader } from '../lib/google-maps-loader';
 
 const DEFAULT_MAP_CENTER = { lat: 47.9189, lng: 106.9176 };
 const MAP_HEIGHT_CLASS = 'h-[680px]';
@@ -364,7 +364,9 @@ function GuideGoogleMap({
         mapContainerStyle={MAP_CONTAINER_STYLE}
         center={DEFAULT_MAP_CENTER}
         zoom={11}
+        mapTypeId={DEFAULT_GOOGLE_MAP_TYPE_ID}
         options={{
+          mapTypeId: DEFAULT_GOOGLE_MAP_TYPE_ID,
           zoomControl: true,
           mapTypeControl: false,
           streetViewControl: false,
