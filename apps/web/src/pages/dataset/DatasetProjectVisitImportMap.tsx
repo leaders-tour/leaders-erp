@@ -1,4 +1,4 @@
-import { GoogleMap, MarkerF, OverlayView, OverlayViewF, useGoogleMap, useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, MarkerF, OverlayView, OverlayViewF, useGoogleMap } from '@react-google-maps/api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import type { ProjectVisitImportRow } from '../../features/dataset/project-visit-import';
@@ -11,6 +11,7 @@ import {
 } from '../../features/guide/guide-location-map-utils';
 import type { GuideLiveLocationRow } from '../../features/guide/hooks';
 import { GOOGLE_MAPS_API_KEY } from '../../lib/google-maps-api-key';
+import { useGoogleMapsLoader } from '../../lib/google-maps-loader';
 
 const DEFAULT_CENTER = { lat: 47.8512, lng: 106.912 };
 const CONTAINER_STYLE = { width: '100%', height: '100%' };
@@ -48,7 +49,8 @@ function createImportMapPathOverlay(path: GuideMapLatLng[], color: string): goog
       const projection = this.getProjection();
       const map = this.getMap();
       const div = this.div;
-      const bounds = map?.getBounds();
+      if (!(map instanceof google.maps.Map)) return;
+      const bounds = map.getBounds();
       if (!projection || !div || !bounds) return;
 
       const southWest = projection.fromLatLngToDivPixel(bounds.getSouthWest());
@@ -136,12 +138,7 @@ export function DatasetProjectVisitImportMap({
   focusNonce = 0,
   onSelectVisit,
 }: DatasetProjectVisitImportMapProps): JSX.Element {
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'catalog-place-map-ko',
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    language: 'ko',
-    region: 'KR',
-  });
+  const { isLoaded, loadError } = useGoogleMapsLoader();
   const mapRef = useRef<google.maps.Map | null>(null);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;

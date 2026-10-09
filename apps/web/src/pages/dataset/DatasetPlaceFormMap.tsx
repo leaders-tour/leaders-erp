@@ -1,9 +1,10 @@
-import { CircleF, GoogleMap, MarkerF, OverlayView, OverlayViewF, useJsApiLoader } from '@react-google-maps/api';
+import { CircleF, GoogleMap, MarkerF, OverlayView, OverlayViewF } from '@react-google-maps/api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import { buildPlaceVisitMarkerIcon } from '../../features/guide/guide-location-map-utils';
 import type { GuidePlaceVisitRow } from '../../features/guide/hooks';
 import { GOOGLE_MAPS_API_KEY } from '../../lib/google-maps-api-key';
+import { useGoogleMapsLoader } from '../../lib/google-maps-loader';
 
 const DEFAULT_CENTER = { lat: 47.8512, lng: 106.912 };
 const CONTAINER_STYLE = { width: '100%', height: '100%' };
@@ -31,12 +32,7 @@ export function DatasetPlaceFormMap({
   onPick,
   onSelectVisit,
 }: DatasetPlaceFormMapProps): JSX.Element {
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'catalog-place-map-ko',
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    language: 'ko',
-    region: 'KR',
-  });
+  const { isLoaded, loadError } = useGoogleMapsLoader();
   const mapRef = useRef<google.maps.Map | null>(null);
   const [satellite, setSatellite] = useState(false);
 

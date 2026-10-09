@@ -1,8 +1,9 @@
-import { CircleF, GoogleMap, OverlayView, OverlayViewF, useJsApiLoader } from '@react-google-maps/api';
+import { CircleF, GoogleMap, OverlayView, OverlayViewF } from '@react-google-maps/api';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import type { CatalogPlaceType } from '../../features/dataset/labels';
 import { GOOGLE_MAPS_API_KEY } from '../../lib/google-maps-api-key';
+import { useGoogleMapsLoader } from '../../lib/google-maps-loader';
 
 const DEFAULT_CENTER = { lat: 47.8512, lng: 106.912 };
 const CONTAINER_STYLE = { width: '100%', height: '100%' };
@@ -163,12 +164,7 @@ export function DatasetPlaceMap({
   fitToCollection = false,
   fitNonce = 0,
 }: DatasetPlaceMapProps): JSX.Element {
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'catalog-place-map-ko',
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    language: 'ko',
-    region: 'KR',
-  });
+  const { isLoaded, loadError } = useGoogleMapsLoader();
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<CatalogPlaceRow[]>([]);
   const selectedIdRef = useRef(selectedId);

@@ -1,5 +1,5 @@
 import { Button, Card } from '@tour/ui';
-import { GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, InfoWindowF, MarkerF } from '@react-google-maps/api';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GuideMapPathsLayer } from '../features/guide/GuideMapPathsLayer';
 import {
@@ -30,6 +30,7 @@ import {
   type LeaderstepsActiveProjectRow,
 } from '../features/guide/hooks';
 import { GOOGLE_MAPS_API_KEY } from '../lib/google-maps-api-key';
+import { useGoogleMapsLoader } from '../lib/google-maps-loader';
 
 const DEFAULT_MAP_CENTER = { lat: 47.9189, lng: 106.9176 };
 const MAP_HEIGHT_CLASS = 'h-[680px]';
@@ -619,12 +620,7 @@ export function GuideLocationMapPage(): JSX.Element {
       setFocusedDayDate(null);
     }
   }, [focusedDayDate, focusedDayOptions]);
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'guide-location-map-ko',
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    language: 'ko',
-    region: 'KR',
-  });
+  const { isLoaded, loadError } = useGoogleMapsLoader();
   const personFilterOptions = useMemo(
     () =>
       [...allLocations].sort((left, right) =>
