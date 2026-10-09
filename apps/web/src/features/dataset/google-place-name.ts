@@ -195,17 +195,25 @@ async function nearbyByDistance(
   });
 }
 
+export type NearbyPlaceKind = 'lodging' | 'restaurant' | 'any';
+
+const NEARBY_KIND_TYPES: Record<NearbyPlaceKind, string[]> = {
+  lodging: ['lodging', 'establishment'],
+  restaurant: ['restaurant', 'establishment'],
+  any: ['establishment'],
+};
+
 export async function nearbyGooglePlaceNames(input: {
   lat: number;
   lng: number;
-  lodgingOnly: boolean;
+  kind?: NearbyPlaceKind;
 }): Promise<{ ok: true; places: GooglePlaceNameCandidate[] } | { ok: false; error: GooglePlaceLookupError }> {
   const service = getPlacesService();
   if (!service) return { ok: false, error: 'unavailable' };
 
   const location = { lat: input.lat, lng: input.lng };
   try {
-    const rankedTypes = input.lodgingOnly ? ['lodging', 'establishment'] : ['establishment'];
+    const rankedTypes = NEARBY_KIND_TYPES[input.kind ?? 'any'];
     let places: GooglePlaceNameCandidate[] = [];
     for (const type of rankedTypes) {
       places = toCandidates(await nearbyByDistance(service, location, type)).slice(0, NEARBY_LIMIT);

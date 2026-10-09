@@ -36,6 +36,24 @@ describe('catalog place visit judgment', () => {
     }
   });
 
+  it('allows restaurants to link an accommodation', () => {
+    const result = catalogPlaceCreateSchema.safeParse({
+      name: 'A캠프 식당',
+      placeType: 'RESTAURANT',
+      accommodationId: 'acc-1',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects accommodation links on experience places', () => {
+    const result = catalogPlaceCreateSchema.safeParse({
+      name: 'ATV',
+      placeType: 'EXPERIENCE',
+      accommodationId: 'acc-1',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects a zero visit radius', () => {
     const result = catalogPlaceUpdateSchema.safeParse({
       visitRadiusM: 0,

@@ -178,7 +178,7 @@ export function suggestImportRow(
   const reuse = findNearbyPlace(draft.latitude, draft.longitude, places, draft.visitRadiusM);
   const area = findNearestArea(draft.latitude, draft.longitude, places);
   const lodging =
-    draft.placeType === 'LODGING'
+    draft.placeType === 'LODGING' || draft.placeType === 'RESTAURANT'
       ? findNearbyLodgingAccommodation(draft.latitude, draft.longitude, places)
       : null;
 
@@ -231,7 +231,7 @@ export function buildPlaceCreateInput(row: ProjectVisitImportRow) {
     parentPlaceId: row.placeType === 'AREA' ? null : row.parentPlaceId || null,
     latitude: row.latitude,
     longitude: row.longitude,
-    accommodationId: row.placeType === 'LODGING' ? row.accommodationId || null : null,
+    accommodationId: row.placeType === 'LODGING' || row.placeType === 'RESTAURANT' ? row.accommodationId || null : null,
     visitJudgmentType: row.visitJudgmentType,
     visitMinStayMinutes: row.visitJudgmentType === 'STAY' ? row.visitMinStayMinutes : null,
     visitRadiusM: row.visitRadiusM,

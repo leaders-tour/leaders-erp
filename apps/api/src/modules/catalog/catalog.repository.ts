@@ -20,7 +20,11 @@ import type {
 
 type PrismaLike = PrismaClient;
 type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
-type CatalogPlaceType = 'LODGING' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+type CatalogPlaceType = 'LODGING' | 'RESTAURANT' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+
+function canLinkAccommodation(placeType: CatalogPlaceType): boolean {
+  return placeType === 'LODGING' || placeType === 'RESTAURANT';
+}
 
 function nextCode(prefix: string, count: number): string {
   return `${prefix}-${String(count + 1).padStart(3, '0')}`;
@@ -162,7 +166,7 @@ export class CatalogRepository {
         longitude: data.longitude ?? null,
         displayName: data.displayName ?? null,
         internalNote: data.internalNote ?? null,
-        accommodationId: data.placeType === 'LODGING' ? (data.accommodationId ?? null) : null,
+        accommodationId: canLinkAccommodation(data.placeType) ? (data.accommodationId ?? null) : null,
         visitJudgmentType: data.visitJudgmentType ?? null,
         visitRadiusM: data.visitRadiusM ?? null,
         visitMinStayMinutes: data.visitJudgmentType === 'PASS' ? null : (data.visitMinStayMinutes ?? null),
@@ -186,7 +190,7 @@ export class CatalogRepository {
         ...(data.longitude !== undefined ? { longitude: data.longitude } : {}),
         ...(data.displayName !== undefined ? { displayName: data.displayName } : {}),
         ...(data.internalNote !== undefined ? { internalNote: data.internalNote } : {}),
-        ...(data.placeType != null && data.placeType !== 'LODGING'
+        ...(data.placeType != null && !canLinkAccommodation(data.placeType)
           ? { accommodationId: null }
           : data.accommodationId !== undefined
             ? { accommodationId: data.accommodationId }

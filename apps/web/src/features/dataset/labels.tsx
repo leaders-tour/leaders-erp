@@ -1,6 +1,6 @@
 import { datasetTheme } from './theme';
 
-export type CatalogPlaceType = 'LODGING' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+export type CatalogPlaceType = 'LODGING' | 'RESTAURANT' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
 export type CatalogVisitJudgmentType = 'PASS' | 'STAY';
 export type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
 export type CatalogElementComposition = 'SINGLE' | 'SET';
@@ -9,11 +9,22 @@ export type CatalogBlockShape = 'DAY' | 'SET';
 
 export const PLACE_TYPE_LABEL: Record<CatalogPlaceType, string> = {
   LODGING: '숙소',
+  RESTAURANT: '식당',
   EXPERIENCE: '체험장',
   MEETING: '미팅 장소',
   GATE: '출입 지점',
   AREA: '목적지',
 };
+
+export function canLinkAccommodation(placeType: CatalogPlaceType): boolean {
+  return placeType === 'LODGING' || placeType === 'RESTAURANT';
+}
+
+export function nearbyPlaceKind(placeType: CatalogPlaceType): 'lodging' | 'restaurant' | 'any' {
+  if (placeType === 'LODGING') return 'lodging';
+  if (placeType === 'RESTAURANT') return 'restaurant';
+  return 'any';
+}
 
 export const ELEMENT_KIND_LABEL: Record<CatalogElementKind, string> = {
   MEETING: '미팅',

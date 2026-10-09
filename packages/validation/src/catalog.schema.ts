@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const catalogPlaceTypeSchema = z.enum(['LODGING', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA']);
+const catalogPlaceTypeSchema = z.enum(['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA']);
 const catalogVisitJudgmentTypeSchema = z.enum(['PASS', 'STAY']);
 const catalogUsageStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
 const catalogElementCompositionSchema = z.enum(['SINGLE', 'SET']);
@@ -37,15 +37,22 @@ const catalogPlaceFields = z.object({
   status: catalogUsageStatusSchema.optional(),
 });
 
+function canLinkAccommodation(placeType: string): boolean {
+  return placeType === 'LODGING' || placeType === 'RESTAURANT';
+}
+
 function lodgingOnlyAccommodation(
-  data: { placeType?: 'LODGING' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA'; accommodationId?: string | null },
+  data: {
+    placeType?: 'LODGING' | 'RESTAURANT' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+    accommodationId?: string | null;
+  },
   ctx: z.RefinementCtx,
 ) {
-  if (data.placeType != null && data.placeType !== 'LODGING' && data.accommodationId) {
+  if (data.placeType != null && !canLinkAccommodation(data.placeType) && data.accommodationId) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['accommodationId'],
-      message: 'accommodationId is only allowed when placeType is LODGING',
+      message: 'accommodationId is only allowed when placeType is LODGING or RESTAURANT',
     });
   }
 }

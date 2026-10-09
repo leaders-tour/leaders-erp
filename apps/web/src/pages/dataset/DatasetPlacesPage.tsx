@@ -38,7 +38,7 @@ import { DatasetRegionsPanel } from './DatasetRegionsPanel';
 type InnerTab = 'regions' | 'places' | 'routes';
 type CreateKind = 'route';
 
-const LIST_PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
+const LIST_PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
 
 const CREATE_LABEL: Record<CreateKind, string> = {
   route: '경로 등록',
@@ -449,7 +449,9 @@ export function DatasetPlacesPage(): JSX.Element {
                         row.latitude != null && row.longitude != null ? '좌표 등록' : '좌표 미등록',
                         row.lodgingLevel,
                         row.placeType === 'LODGING' ? row.rateSummary ?? '요금 미등록' : null,
-                        row.placeType === 'LODGING' ? row.linkLabel ?? (row.accommodation?.name ? `숙소 원본 ${row.accommodation.name}` : '숙소 원본 미연결') : null,
+                        row.placeType === 'LODGING' || row.placeType === 'RESTAURANT'
+                          ? row.linkLabel ?? (row.accommodation?.name ? `숙소 원본 ${row.accommodation.name}` : '숙소 원본 미연결')
+                          : null,
                         STATUS_LABEL[row.status],
                       ].filter((value): value is string => Boolean(value));
                       const selected = viewPlaceId === row.id;

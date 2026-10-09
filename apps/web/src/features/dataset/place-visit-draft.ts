@@ -51,7 +51,7 @@ export function visitToPlaceDraft(source: PlaceVisitDraftSource): PlaceVisitDraf
 function placeTypeFromPin(pinType: string): CatalogPlaceType {
   if (pinType === 'lodging' || pinType === 'accommodation') return 'LODGING';
   if (pinType === 'attraction' || pinType === 'shopping') return 'EXPERIENCE';
-  if (pinType === 'meal') return 'MEETING';
+  if (pinType === 'meal') return 'RESTAURANT';
   if (pinType === 'transport') return 'GATE';
   return 'LODGING';
 }

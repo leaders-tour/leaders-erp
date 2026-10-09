@@ -17,6 +17,7 @@ const MAP_STYLES: google.maps.MapTypeStyle[] = [
 
 const PIN_COLOR: Record<CatalogPlaceType, string> = {
   LODGING: 'bg-emerald-600',
+  RESTAURANT: 'bg-orange-500',
   EXPERIENCE: 'bg-sky-500',
   MEETING: 'bg-amber-500',
   GATE: 'bg-violet-500',

@@ -13,6 +13,8 @@ import {
   DatasetPageFooter,
   PLACE_TYPE_LABEL,
   VISIT_JUDGMENT_TYPE_LABEL,
+  canLinkAccommodation,
+  nearbyPlaceKind,
   type CatalogPlaceType,
 } from '../../features/dataset/labels';
 import { looksLikeAdminName, nearbyGooglePlaceNames } from '../../features/dataset/google-place-name';
@@ -41,7 +43,7 @@ import { formatUlaanbaatarProjectDate } from '../../features/guide/guide-locatio
 import { useGuideLiveLocations, useGuidePlaceVisits, useLeaderstepsActiveProjects } from '../../features/guide/hooks';
 import { DatasetProjectVisitImportMap } from './DatasetProjectVisitImportMap';
 
-const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
+const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
 
 const VISIT_TIME_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Ulaanbaatar',
@@ -166,7 +168,7 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
         const nearby = await nearbyGooglePlaceNames({
           lat: row.latitude,
           lng: row.longitude,
-          lodgingOnly: row.placeType === 'LODGING',
+          kind: nearbyPlaceKind(row.placeType),
         });
         const placeName = nearby.ok ? nearby.places[0]?.name ?? null : null;
         let country: string | null = null;
@@ -213,8 +215,9 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
   };
 
   const changePlaceType = (row: ProjectVisitImportRow, placeType: CatalogPlaceType) => {
-    const lodging =
-      placeType === 'LODGING' ? findNearbyLodgingAccommodation(row.latitude, row.longitude, places) : null;
+    const lodging = canLinkAccommodation(placeType)
+      ? findNearbyLodgingAccommodation(row.latitude, row.longitude, places)
+      : null;
     updateRow(row.visitId, {
       placeType,
       parentPlaceId: placeType === 'AREA' ? null : row.parentPlaceId,
@@ -568,7 +571,7 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
                             </select>
                           </Td>
                           <Td>
-                            {row.placeType === 'LODGING' ? (
+                            {canLinkAccommodation(row.placeType) ? (
                               <select
                                 className={compactSelectClass()}
                                 value={row.accommodationId ?? ''}

@@ -109,7 +109,7 @@ export function DatasetPlaceDetailPanel({
   const [tab, setTab] = useState<DetailTab>('overview');
   const [stubMessage, setStubMessage] = useState<string | null>(null);
   const { accommodation, loading: accommodationLoading } = useAccommodation(
-    place.placeType === 'LODGING' ? (place.accommodationId ?? undefined) : undefined,
+    place.placeType === 'LODGING' || place.placeType === 'RESTAURANT' ? (place.accommodationId ?? undefined) : undefined,
   );
   const isLodging = place.placeType === 'LODGING';
   const hasCoords = place.latitude != null && place.longitude != null;

@@ -1,5 +1,6 @@
 enum CatalogPlaceType {
   LODGING
+  RESTAURANT
   EXPERIENCE
   MEETING
   GATE

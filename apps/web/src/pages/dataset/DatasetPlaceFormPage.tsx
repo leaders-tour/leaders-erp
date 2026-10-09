@@ -23,7 +23,9 @@ import {
   DatasetPageFooter,
   PLACE_TYPE_LABEL,
   VISIT_JUDGMENT_TYPE_LABEL,
+  canLinkAccommodation,
   defaultVisitJudgmentType,
+  nearbyPlaceKind,
   type CatalogPlaceType,
   type CatalogUsageStatus,
   type CatalogVisitJudgmentType,
@@ -32,7 +34,7 @@ import { datasetTheme } from '../../features/dataset/theme';
 import { DatasetButton, DatasetCard, DatasetField, DatasetPageShell, datasetControlClass } from '../../features/dataset/ui';
 import { DatasetPlaceFormMap } from './DatasetPlaceFormMap';
 
-const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
+const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
 const DEFAULT_VISIT_RADIUS_M = 50;
 const DEFAULT_VISIT_MIN_STAY_MINUTES = 3;
 const LODGING_ROLES = [
@@ -183,7 +185,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const [country, setCountry] = useState('몽골');
   const [regionId, setRegionId] = useState('');
   const [accommodationId, setAccommodationId] = useState(
-    initialType === 'LODGING' ? searchParams.get('accommodationId') ?? '' : '',
+    canLinkAccommodation(initialType) ? searchParams.get('accommodationId') ?? '' : '',
   );
   const [lodgingRole, setLodgingRole] = useState<(typeof LODGING_ROLES)[number]['id']>('PICKUP');
   const [latInput, setLatInput] = useState(visitDraft ? String(visitDraft.latitude) : '');
@@ -266,8 +268,9 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const isStayJudgment = visitJudgmentType === 'STAY';
   const isArea = placeType === 'AREA';
   const isLodging = placeType === 'LODGING';
-  const showLodgingSection = isLodging;
-  const showRelatedPlaces = isLodging && Boolean(accommodationId);
+  const isRestaurant = placeType === 'RESTAURANT';
+  const showLodgingSection = canLinkAccommodation(placeType);
+  const showRelatedPlaces = showLodgingSection && Boolean(accommodationId);
   let sectionNo = 1;
   const sectionN = {
     basic: sectionNo++,
@@ -278,18 +281,18 @@ export function DatasetPlaceFormPage(): JSX.Element {
     judgment: sectionNo++,
     confirm: sectionNo++,
   };
-  const { accommodation } = useAccommodation(isLodging ? accommodationId || undefined : undefined);
+  const { accommodation } = useAccommodation(showLodgingSection ? accommodationId || undefined : undefined);
 
   const visitLookupLat = visitDraft?.latitude;
   const visitLookupLng = visitDraft?.longitude;
-  const visitLookupLodging = visitDraft?.placeType === 'LODGING';
+  const visitLookupKind = visitDraft ? nearbyPlaceKind(visitDraft.placeType) : 'any';
   useEffect(() => {
     if (visitLookupLat == null || visitLookupLng == null) return;
     let cancelled = false;
     void nearbyGooglePlaceNames({
       lat: visitLookupLat,
       lng: visitLookupLng,
-      lodgingOnly: visitLookupLodging,
+      kind: visitLookupKind,
     }).then((result) => {
       if (cancelled) return;
       if (!result.ok) {
@@ -302,7 +305,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [visitLookupLat, visitLookupLng, visitLookupLodging]);
+  }, [visitLookupLat, visitLookupLng, visitLookupKind]);
 
   useEffect(() => {
     if (!isEdit || !editingPlace || hydrated) return;
@@ -313,7 +316,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setParentPlaceId(editingPlace.placeType === 'AREA' ? '' : editingPlace.parentPlaceId ?? '');
     setCountry(editingPlace.country);
     setRegionId(editingPlace.regionId ?? '');
-    setAccommodationId(editingPlace.placeType === 'LODGING' ? editingPlace.accommodationId ?? '' : '');
+    setAccommodationId(canLinkAccommodation(editingPlace.placeType) ? editingPlace.accommodationId ?? '' : '');
     setLatInput(formatCoord(editingPlace.latitude));
     setLngInput(formatCoord(editingPlace.longitude));
     setCoordSource(editingPlace.latitude != null ? 'input' : null);
@@ -342,15 +345,17 @@ export function DatasetPlaceFormPage(): JSX.Element {
     if (!parentPlace) return;
     if (parentPlace.country) setCountry(parentPlace.country);
     if (parentPlace.regionId) setRegionId(parentPlace.regionId);
-    if (isLodging && parentPlace.accommodationId) setAccommodationId(parentPlace.accommodationId);
+    if (showLodgingSection && parentPlace.accommodationId) setAccommodationId(parentPlace.accommodationId);
     if (parentPlace.latitude != null && parentPlace.longitude != null && latitude == null && longitude == null) {
       setFocus({ lat: parentPlace.latitude, lng: parentPlace.longitude });
     }
-  }, [isArea, isLodging, latitude, longitude, parentPlace, parentPlaceId]);
+  }, [isArea, latitude, longitude, parentPlace, parentPlaceId, showLodgingSection]);
 
   const relatedPlaces = useMemo(() => {
     if (accommodationId) {
-      return places.filter((row) => row.placeType === 'LODGING' && row.accommodationId === accommodationId && row.id !== placeId);
+      return places.filter(
+        (row) => canLinkAccommodation(row.placeType) && row.accommodationId === accommodationId && row.id !== placeId,
+      );
     }
     if (parentPlaceId) {
       return places.filter(
@@ -405,10 +410,10 @@ export function DatasetPlaceFormPage(): JSX.Element {
     return true;
   };
 
-  const lookupNearbyPlaces = async (lat: number, lng: number, lodgingOnly = placeType === 'LODGING') => {
+  const lookupNearbyPlaces = async (lat: number, lng: number, kind = nearbyPlaceKind(placeType)) => {
     setNearbyLoading(true);
     setNearbyError(null);
-    const result = await nearbyGooglePlaceNames({ lat, lng, lodgingOnly });
+    const result = await nearbyGooglePlaceNames({ lat, lng, kind });
     setNearbyLoading(false);
     if (!result.ok) {
       setNearbyPlaces([]);
@@ -449,9 +454,9 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setStayMinutesInput(draft.visitMinStayMinutes != null ? String(draft.visitMinStayMinutes) : '');
     setPlaceType(draft.placeType);
     if (draft.placeType === 'AREA') setParentPlaceId('');
-    if (draft.placeType !== 'LODGING') setAccommodationId('');
+    if (!canLinkAccommodation(draft.placeType)) setAccommodationId('');
     if (draft.name && !name.trim() && !looksLikeAdminName(draft.name)) setName(draft.name);
-    void lookupNearbyPlaces(draft.latitude, draft.longitude, draft.placeType === 'LODGING');
+    void lookupNearbyPlaces(draft.latitude, draft.longitude, nearbyPlaceKind(draft.placeType));
   };
 
   const handleSearch = async () => {
@@ -521,7 +526,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
     latitude,
     longitude,
     displayName: displayName.trim() || null,
-    accommodationId: isLodging ? accommodationId || null : null,
+    accommodationId: canLinkAccommodation(placeType) ? accommodationId || null : null,
     visitJudgmentType,
     visitRadiusM,
     visitMinStayMinutes: isStayJudgment ? visitMinStayMinutes : null,
@@ -603,7 +608,9 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 ? '하위 장소를 묶는 목적지를 등록합니다. 목적지는 상위 장소가 없고, 좌표도 필수가 아닙니다.'
                 : placeType === 'LODGING'
                   ? '숙소 장소를 등록하고, 객실·요금 원본인 숙소 정보에 연결합니다.'
-                  : '목적지나 다른 장소 아래의 지점을 등록합니다. 숙소 원본은 숙소 유형에서만 연결합니다.'}
+                  : placeType === 'RESTAURANT'
+                    ? '숙소에 딸린 식당을 등록하고, 같은 숙소 원본에 연결합니다.'
+                    : '목적지나 다른 장소 아래의 지점을 등록합니다. 숙소 원본은 숙소·식당 유형에서만 연결합니다.'}
             </p>
           </div>
           <DatasetButton type="button" variant="outline" onClick={leaveToList}>
@@ -631,7 +638,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                       className={`${datasetControlClass} min-w-0 flex-1`}
                       value={name}
                       onChange={(event) => setName(event.target.value)}
-                      placeholder="예: A캠프 추가 픽업 지점"
+                      placeholder={isRestaurant ? '예: A캠프 식당' : '예: A캠프 추가 픽업 지점'}
                     />
                     <DatasetButton
                       type="button"
@@ -663,7 +670,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                         setPlaceType(next);
                         setVisitJudgmentType(defaultVisitJudgmentType(next));
                         if (next === 'AREA') setParentPlaceId('');
-                        if (next !== 'LODGING') setAccommodationId('');
+                        if (!canLinkAccommodation(next)) setAccommodationId('');
                       }}
                     >
                       {typeOptions.map((value) => (
@@ -734,7 +741,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 {isArea ? null : <p className="text-xs text-[#8B83B8]">상위 장소의 좌표는 새 지점의 좌표로 복사하지 않습니다.</p>}
               </Section>
 
-              {isLodging ? (
+              {showLodgingSection ? (
                 <>
               <Section
                 n={sectionN.lodging}
@@ -771,9 +778,14 @@ export function DatasetPlaceFormPage(): JSX.Element {
                     <p className="text-sm text-slate-500">
                       {parentPlace?.accommodationId
                         ? '상위 장소의 숙소 연결을 따릅니다.'
-                        : '객실·요금 원본인 기존 숙소를 선택합니다. 새 숙소는 여기서 만들지 않습니다.'}
+                        : isRestaurant
+                          ? '이 식당이 속한 숙소 원본을 고릅니다. 새 숙소는 여기서 만들지 않습니다.'
+                          : '객실·요금 원본인 기존 숙소를 선택합니다. 새 숙소는 여기서 만들지 않습니다.'}
                     </p>
                   )}
+                  {isRestaurant ? (
+                    <p className="text-xs text-[#8B83B8]">식당은 숙소 원본에만 연결합니다. 객실·요금은 숙소 장소를 따릅니다.</p>
+                  ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <DatasetField label="연결 용도">
                       <select
@@ -792,6 +804,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                       <Input className={datasetControlClass} value="매입 · 조회 전용" readOnly />
                     </DatasetField>
                   </div>
+                  )}
                   <p className="text-sm font-medium text-slate-800">{rateLabel}</p>
                   <p className="text-xs text-[#8B83B8]">
                     {parentPlace?.accommodationId
@@ -805,9 +818,21 @@ export function DatasetPlaceFormPage(): JSX.Element {
                   n={sectionN.related}
                   title={`이 숙소에 연결된 기존 장소 ${relatedPlaces.length}개`}
                   extra={
-                    <Link className={`text-xs font-medium ${datasetTheme.link}`} to={`/dataset/places`}>
-                      전체 보기
-                    </Link>
+                    <span className="flex items-center gap-3">
+                      {accommodationId ? (
+                        <Link
+                          className={`text-xs font-medium ${datasetTheme.link}`}
+                          to={`/dataset/places/new?type=RESTAURANT&accommodationId=${encodeURIComponent(accommodationId)}${
+                            parentPlaceId || placeId ? `&parentId=${encodeURIComponent(parentPlaceId || placeId || '')}` : ''
+                          }`}
+                        >
+                          식당 추가
+                        </Link>
+                      ) : null}
+                      <Link className={`text-xs font-medium ${datasetTheme.link}`} to={`/dataset/places`}>
+                        전체 보기
+                      </Link>
+                    </span>
                   }
                 >
                   {relatedPlaces.length === 0 ? (
@@ -1092,11 +1117,15 @@ export function DatasetPlaceFormPage(): JSX.Element {
                       {isArea ? '없음 · 목적지' : parentPlace ? `${parentPlace.name} · ${parentPlace.code}` : '없음'}
                     </dd>
                   </div>
-                  {isLodging ? (
+                  {showLodgingSection ? (
                     <div className="flex justify-between gap-3">
                       <dt className="text-slate-500">숙소 원본</dt>
                       <dd className="text-right text-slate-800">
-                        {accommodation ? `${accommodation.name} · ${LODGING_ROLES.find((row) => row.id === lodgingRole)?.label}` : '연결 안 함'}
+                        {accommodation
+                          ? isRestaurant
+                            ? `${accommodation.name} · 식당`
+                            : `${accommodation.name} · ${LODGING_ROLES.find((row) => row.id === lodgingRole)?.label}`
+                          : '연결 안 함'}
                       </dd>
                     </div>
                   ) : null}
@@ -1136,7 +1165,9 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 ? '새 목적지 1개 등록 · 상위 장소 없이 국가·권역만 저장합니다.'
                 : isLodging
                   ? '새 숙소 장소 1개 등록 · 객실·요금 원본만 연결합니다.'
-                  : '새 장소 1개 등록 · 상위 장소만 반영하고 숙소 원본은 연결하지 않습니다.'}
+                  : isRestaurant
+                    ? '새 식당 장소 1개 등록 · 숙소 원본에 연결합니다.'
+                    : '새 장소 1개 등록 · 상위 장소만 반영하고 숙소 원본은 연결하지 않습니다.'}
           </p>
           <div className="flex flex-wrap gap-2">
             <DatasetButton type="button" variant="outline" onClick={leaveToList}>

@@ -38,7 +38,7 @@ import { createValidationError } from '../../lib/errors';
 import { CatalogRepository } from './catalog.repository';
 
 type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
-type CatalogPlaceType = 'LODGING' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+type CatalogPlaceType = 'LODGING' | 'RESTAURANT' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
 
 function parseOrThrow<T>(schema: ZodType<T>, input: unknown, label: string): T {
   const parsed = schema.safeParse(input);
