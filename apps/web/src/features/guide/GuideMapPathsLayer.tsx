@@ -11,6 +11,7 @@ export interface GuideMapPathLayer {
   color: string;
   focused: boolean;
   dimmed: boolean;
+  arrows?: boolean;
 }
 
 interface StoredPolyline {
@@ -49,6 +50,9 @@ export function GuideMapPathsLayer({
       activeGuideIds.add(layer.guideId);
       const existing = polylinesRef.current.get(layer.guideId);
       const options = buildGuidePathPolylineOptions(layer);
+      if (layer.arrows === false) {
+        options.icons = [];
+      }
 
       if (existing) {
         existing.polyline.setPath(layer.path);

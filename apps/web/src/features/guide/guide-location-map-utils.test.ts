@@ -3,7 +3,10 @@ import {
   buildGuideMapPathLayerKey,
   buildGuidePathPolylineOptions,
   canDrawGuidePath,
+  clipGuidePathToViewport,
   GUIDE_PATH_ARROW_REPEAT,
+  prepareGuidePathForMap,
+  resolveGuidePathRenderBudget,
   simplifyGuideMapPath,
 } from './guide-location-map-utils';
 
@@ -96,6 +99,36 @@ describe('simplifyGuideMapPath', () => {
     expect(simplified).toHaveLength(20);
     expect(simplified[0]).toEqual(path[0]);
     expect(simplified[simplified.length - 1]).toEqual(path[path.length - 1]);
+  });
+});
+
+describe('prepareGuidePathForMap', () => {
+  it('keeps a coarse overview at country zoom', () => {
+    expect(resolveGuidePathRenderBudget(6).maxPoints).toBe(800);
+    const path = Array.from({ length: 400 }, (_, index) => ({
+      lat: 47.8 + index * 0.01,
+      lng: 107.4 + index * 0.01,
+    }));
+    const prepared = prepareGuidePathForMap(path, { zoom: 6 });
+    expect(prepared.length).toBeLessThanOrEqual(800);
+    expect(prepared[0]).toEqual(path[0]);
+    expect(prepared[prepared.length - 1]).toEqual(path[path.length - 1]);
+  });
+
+  it('clips to the viewport when zoomed in', () => {
+    const path = [
+      { lat: 47.8, lng: 106.8 },
+      { lat: 47.85, lng: 106.9 },
+      { lat: 44.5, lng: 105.7 },
+      { lat: 43.5, lng: 104.2 },
+    ];
+    const clipped = clipGuidePathToViewport(path, {
+      south: 47.7,
+      west: 106.7,
+      north: 47.95,
+      east: 107.1,
+    });
+    expect(clipped.map((point) => point.lat)).toEqual([47.8, 47.85, 44.5]);
   });
 });
 

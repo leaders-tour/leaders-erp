@@ -132,6 +132,57 @@ export function simplifyGuideMapPath(
   return sampled;
 }
 
+export function resolveGuidePathRenderBudget(zoom: number): {
+  maxPoints: number;
+  minDistanceMeters: number;
+} {
+  if (zoom >= 15) return { maxPoints: 18_000, minDistanceMeters: 8 };
+  if (zoom >= 13) return { maxPoints: 10_000, minDistanceMeters: 16 };
+  if (zoom >= 11) return { maxPoints: 5_000, minDistanceMeters: 35 };
+  if (zoom >= 9) return { maxPoints: 2_200, minDistanceMeters: 80 };
+  return { maxPoints: 800, minDistanceMeters: 200 };
+}
+
+export function clipGuidePathToViewport(
+  path: GuideMapLatLng[],
+  bounds: { south: number; west: number; north: number; east: number },
+  padRatio = 0.2,
+): GuideMapLatLng[] {
+  if (path.length <= 2) {
+    return path;
+  }
+
+  const latPad = (bounds.north - bounds.south) * padRatio;
+  const lngPad = (bounds.east - bounds.west) * padRatio;
+  const south = bounds.south - latPad;
+  const north = bounds.north + latPad;
+  const west = bounds.west - lngPad;
+  const east = bounds.east + lngPad;
+  const inside = (point: GuideMapLatLng) =>
+    point.lat >= south && point.lat <= north && point.lng >= west && point.lng <= east;
+
+  const clipped: GuideMapLatLng[] = [];
+  for (let index = 0; index < path.length; index += 1) {
+    const point = path[index]!;
+    const prevInside = index > 0 && inside(path[index - 1]!);
+    const nextInside = index < path.length - 1 && inside(path[index + 1]!);
+    if (inside(point) || prevInside || nextInside) {
+      clipped.push(point);
+    }
+  }
+  return clipped.length >= 2 ? clipped : path;
+}
+
+export function prepareGuidePathForMap(
+  path: GuideMapLatLng[],
+  options: { zoom: number; bounds?: { south: number; west: number; north: number; east: number } | null },
+): GuideMapLatLng[] {
+  const budget = resolveGuidePathRenderBudget(options.zoom);
+  const source =
+    options.zoom >= 12 && options.bounds ? clipGuidePathToViewport(path, options.bounds) : path;
+  return simplifyGuideMapPath(source, budget);
+}
+
 export const GUIDE_PATH_ARROW_REPEAT = '280px';
 export const GUIDE_PATH_TIME_FILTER_DEBOUNCE_MS = 250;
 
@@ -389,7 +440,7 @@ export function resolveGuidePathTimeRangeMs(
 }
 
 export function filterGuidePathByTimeRange<
-  T extends { recordedAt: string; latitude: number; longitude: number; accuracy: number },
+  T extends { recordedAt: string; latitude: number; longitude: number; accuracy?: number },
 >(
   path: T[],
   dayDate: string | null,
@@ -429,9 +480,9 @@ export function applyGuidePathTimeFilter<T extends {
   path: Array<{
     latitude: number;
     longitude: number;
-    accuracy: number;
+    accuracy?: number;
     recordedAt: string;
-    projectId: string;
+    projectId?: string;
   }>;
 }>(
   location: T,
@@ -453,7 +504,7 @@ export function applyGuidePathTimeFilter<T extends {
     path: filteredPath,
     latestLatitude: latestPoint.latitude,
     latestLongitude: latestPoint.longitude,
-    latestAccuracy: latestPoint.accuracy,
+    latestAccuracy: latestPoint.accuracy ?? location.latestAccuracy,
     latestRecordedAt: latestPoint.recordedAt,
   };
 }

@@ -40,10 +40,21 @@ import {
   datasetControlClass,
 } from '../../features/dataset/ui';
 import { formatUlaanbaatarProjectDate } from '../../features/guide/guide-location-map-utils';
-import { useGuideLiveLocations, useGuidePlaceVisits, useLeaderstepsActiveProjects } from '../../features/guide/hooks';
-import { DatasetProjectVisitImportMap } from './DatasetProjectVisitImportMap';
+import {
+  useGuideLiveLocations,
+  useGuidePlaceVisits,
+  useLeaderstepsActiveProjects,
+  type GuideLiveLocationRow,
+} from '../../features/guide/hooks';
+import {
+  DatasetProjectVisitImportMap,
+  type ImportMapCatalogPin,
+  type ImportMapVisitPin,
+} from './DatasetProjectVisitImportMap';
 
 const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
+const EMPTY_LIVE_LOCATIONS: GuideLiveLocationRow[] = [];
+const EMPTY_CATALOG_PLACES: CatalogPlaceRow[] = [];
 
 const VISIT_TIME_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Ulaanbaatar',
@@ -104,10 +115,43 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
   const [createPlace] = useCreateCatalogPlace();
   const [createRoute] = useCreateCatalogRoute();
 
-  const places = placesQuery.data?.catalogPlaces ?? [];
+  const places = placesQuery.data?.catalogPlaces ?? EMPTY_CATALOG_PLACES;
   const routes = routesQuery.data?.catalogRoutes ?? [];
   const visits = visitsQuery.placeVisits;
   const projects = projectsQuery.projects;
+  const liveLocations = locationsQuery.locations.length > 0 ? locationsQuery.locations : EMPTY_LIVE_LOCATIONS;
+  const pathPointCount = liveLocations.reduce((sum, location) => sum + location.path.length, 0);
+  const visitPinKey = rows
+    .map((row) => `${row.visitId}:${row.latitude}:${row.longitude}:${Number(row.enabled)}`)
+    .join('|');
+  const visitPinsCache = useRef<{ key: string; pins: ImportMapVisitPin[] }>({ key: '', pins: [] });
+  if (visitPinsCache.current.key !== visitPinKey) {
+    visitPinsCache.current = {
+      key: visitPinKey,
+      pins: rows.map((row) => ({
+        visitId: row.visitId,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        enabled: row.enabled,
+        position: { lat: row.latitude, lng: row.longitude },
+      })),
+    };
+  }
+  const visitPins = visitPinsCache.current.pins;
+  const catalogPins = useMemo<ImportMapCatalogPin[]>(
+    () =>
+      places
+        .filter((place) => place.latitude != null && place.longitude != null)
+        .map((place) => ({
+          id: place.id,
+          name: place.name,
+          code: place.code,
+          latitude: place.latitude as number,
+          longitude: place.longitude as number,
+          position: { lat: place.latitude as number, lng: place.longitude as number },
+        })),
+    [places],
+  );
 
   const filteredProjects = useMemo(() => {
     const keyword = projectQuery.trim().toLowerCase();
@@ -437,13 +481,16 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
               주황=포함 · 회색=제외 · 흰 점=기존 장소 · 선=이동 경로
               {locationsQuery.loading ? ' · 경로 불러오는 중' : ''}
               {locationsQuery.errorMessage ? ' · 경로를 불러오지 못했습니다' : ''}
+              {!locationsQuery.loading && !locationsQuery.errorMessage && pathPointCount > 0
+                ? ` · ${pathPointCount.toLocaleString('ko-KR')}포인트`
+                : ''}
             </p>
           </div>
           <div className="h-[360px] xl:h-[480px]">
             <DatasetProjectVisitImportMap
-              rows={rows}
-              catalogPlaces={places}
-              locations={locationsQuery.locations}
+              visitPins={visitPins}
+              catalogPins={catalogPins}
+              locations={liveLocations}
               selectedVisitId={selectedVisitId}
               focusNonce={mapFocusNonce}
               onSelectVisit={setSelectedVisitId}

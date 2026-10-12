@@ -1,21 +1,63 @@
-import { GoogleMap, MarkerF, OverlayView, OverlayViewF, useGoogleMap } from '@react-google-maps/api';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CatalogPlaceRow } from '../../features/dataset/hooks';
-import type { ProjectVisitImportRow } from '../../features/dataset/project-visit-import';
+import { GoogleMap, MarkerF, OverlayView, OverlayViewF } from '@react-google-maps/api';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { GuideMapPathsLayer } from '../../features/guide/GuideMapPathsLayer';
 import {
-  canDrawGuidePath,
   getGuidePathColor,
   normalizeGuideMapPath,
-  simplifyGuideMapPath,
-  type GuideMapLatLng,
+  prepareGuidePathForMap,
 } from '../../features/guide/guide-location-map-utils';
 import type { GuideLiveLocationRow } from '../../features/guide/hooks';
 import { GOOGLE_MAPS_API_KEY } from '../../lib/google-maps-api-key';
-import { useGoogleMapsLoader } from '../../lib/google-maps-loader';
+import { DEFAULT_GOOGLE_MAP_TYPE_ID, useGoogleMapsLoader } from '../../lib/google-maps-loader';
 
 const DEFAULT_CENTER = { lat: 47.8512, lng: 106.912 };
 const CONTAINER_STYLE = { width: '100%', height: '100%' };
 const FOCUS_ZOOM = 16;
+const LABEL_MIN_ZOOM = 14;
+const MAX_VISIBLE_LABELS = 80;
+const ROADMAP_STYLES: google.maps.MapTypeStyle[] = [
+  { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+];
+const HYBRID_OPTIONS: google.maps.MapOptions = {
+  mapTypeId: 'hybrid',
+  streetViewControl: false,
+  mapTypeControl: false,
+  fullscreenControl: false,
+  clickableIcons: false,
+};
+const ROADMAP_OPTIONS: google.maps.MapOptions = {
+  mapTypeId: 'roadmap',
+  streetViewControl: false,
+  mapTypeControl: false,
+  fullscreenControl: false,
+  clickableIcons: false,
+  styles: ROADMAP_STYLES,
+};
+
+export interface ImportMapVisitPin {
+  visitId: string;
+  latitude: number;
+  longitude: number;
+  enabled: boolean;
+  position: { lat: number; lng: number };
+}
+
+export interface ImportMapCatalogPin {
+  id: string;
+  name: string;
+  code: string;
+  latitude: number;
+  longitude: number;
+  position: { lat: number; lng: number };
+}
+
+function visitBoundsKey(pins: ImportMapVisitPin[]): string {
+  return pins.map((pin) => `${pin.visitId}:${pin.latitude}:${pin.longitude}`).join('|');
+}
+
+function catalogBoundsKey(pins: ImportMapCatalogPin[]): string {
+  return pins.map((pin) => `${pin.id}:${pin.latitude}:${pin.longitude}`).join('|');
+}
 
 function visitMarkerIcon(selected: boolean, enabled: boolean): google.maps.Icon {
   const size = selected ? 38 : 34;
@@ -34,105 +76,18 @@ function visitMarkerIcon(selected: boolean, enabled: boolean): google.maps.Icon 
   };
 }
 
-function createImportMapPathOverlay(path: GuideMapLatLng[], color: string): google.maps.OverlayView {
-  class ImportMapPathOverlay extends google.maps.OverlayView {
-    private div: HTMLDivElement | null = null;
-
-    onAdd() {
-      this.div = document.createElement('div');
-      this.div.style.position = 'absolute';
-      this.div.style.pointerEvents = 'none';
-      this.getPanes()?.overlayLayer.appendChild(this.div);
-    }
-
-    draw() {
-      const projection = this.getProjection();
-      const map = this.getMap();
-      const div = this.div;
-      if (!(map instanceof google.maps.Map)) return;
-      const bounds = map.getBounds();
-      if (!projection || !div || !bounds) return;
-
-      const southWest = projection.fromLatLngToDivPixel(bounds.getSouthWest());
-      const northEast = projection.fromLatLngToDivPixel(bounds.getNorthEast());
-      if (!southWest || !northEast) return;
-
-      const left = Math.min(southWest.x, northEast.x);
-      const top = Math.min(southWest.y, northEast.y);
-      const width = Math.max(1, Math.abs(northEast.x - southWest.x));
-      const height = Math.max(1, Math.abs(northEast.y - southWest.y));
-      const d = path
-        .map((point, index) => {
-          const pixel = projection.fromLatLngToDivPixel(new google.maps.LatLng(point.lat, point.lng));
-          if (!pixel) return '';
-          return `${index === 0 ? 'M' : 'L'}${(pixel.x - left).toFixed(1)},${(pixel.y - top).toFixed(1)}`;
-        })
-        .join(' ');
-
-      div.style.left = `${left}px`;
-      div.style.top = `${top}px`;
-      div.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><path d="${d}" fill="none" stroke="${color}" stroke-width="5" stroke-opacity="0.92" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
-    }
-
-    onRemove() {
-      this.div?.remove();
-      this.div = null;
-    }
-  }
-
-  return new ImportMapPathOverlay();
-}
-
-function MapInstanceBinder({
-  mapRef,
-}: {
-  mapRef: { current: google.maps.Map | null };
-}): null {
-  const map = useGoogleMap();
-  useEffect(() => {
-    mapRef.current = map;
-  }, [map, mapRef]);
-  return null;
-}
-
-function ImportMapPathsLayer({
-  layers,
-}: {
-  layers: Array<{ guideId: string; path: GuideMapLatLng[]; color: string }>;
-}): null {
-  const map = useGoogleMap();
-
-  useEffect(() => {
-    if (!map) return;
-    const overlays = layers
-      .filter((layer) => canDrawGuidePath(layer.path))
-      .map((layer) => {
-        const overlay = createImportMapPathOverlay(layer.path, layer.color);
-        overlay.setMap(map);
-        return overlay;
-      });
-    return () => {
-      for (const overlay of overlays) {
-        overlay.setMap(null);
-      }
-    };
-  }, [layers, map]);
-
-  return null;
-}
-
 interface DatasetProjectVisitImportMapProps {
-  rows: ProjectVisitImportRow[];
-  catalogPlaces: CatalogPlaceRow[];
+  visitPins: ImportMapVisitPin[];
+  catalogPins: ImportMapCatalogPin[];
   locations?: GuideLiveLocationRow[];
   selectedVisitId: string | null;
   focusNonce?: number;
   onSelectVisit: (visitId: string) => void;
 }
 
-export function DatasetProjectVisitImportMap({
-  rows,
-  catalogPlaces,
+function DatasetProjectVisitImportMapView({
+  visitPins,
+  catalogPins,
   locations = [],
   selectedVisitId,
   focusNonce = 0,
@@ -140,53 +95,143 @@ export function DatasetProjectVisitImportMap({
 }: DatasetProjectVisitImportMapProps): JSX.Element {
   const { isLoaded, loadError } = useGoogleMapsLoader();
   const mapRef = useRef<google.maps.Map | null>(null);
-  const rowsRef = useRef(rows);
-  rowsRef.current = rows;
+  const visitPinsRef = useRef(visitPins);
+  const catalogPinsRef = useRef(catalogPins);
+  visitPinsRef.current = visitPins;
+  catalogPinsRef.current = catalogPins;
+  const [map, setMap] = useState<google.maps.Map | null>(null);
   const [satellite, setSatellite] = useState(true);
+  const [labelIds, setLabelIds] = useState<string[]>([]);
+  const [view, setView] = useState<{
+    zoom: number;
+    bounds: { south: number; west: number; north: number; east: number } | null;
+  }>({ zoom: 6, bounds: null });
 
-  const pathLayers = useMemo(
+  const visitFitKey = visitBoundsKey(visitPins);
+  const catalogFitKey = catalogBoundsKey(catalogPins);
+
+  const visitIcons = useMemo(() => {
+    if (!isLoaded || typeof google === 'undefined') return null;
+    return {
+      selected: visitMarkerIcon(true, true),
+      enabled: visitMarkerIcon(false, true),
+      disabled: visitMarkerIcon(false, false),
+    };
+  }, [isLoaded]);
+
+  const catalogIcon = useMemo<google.maps.Symbol | undefined>(() => {
+    if (!isLoaded || typeof google === 'undefined') return undefined;
+    return {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 5,
+      fillColor: '#94a3b8',
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+    };
+  }, [isLoaded]);
+
+  const fullPaths = useMemo(
     () =>
       locations.map((location, index) => ({
         guideId: location.guideId,
-        path: simplifyGuideMapPath(normalizeGuideMapPath(location.path)),
+        path: normalizeGuideMapPath(location.path),
         color: getGuidePathColor(index),
       })),
     [locations],
   );
 
-  const relatedMarkers = useMemo(
-    () => catalogPlaces.filter((row) => row.latitude != null && row.longitude != null),
-    [catalogPlaces],
+  const pathLayers = useMemo(
+    () =>
+      fullPaths.map((layer) => ({
+        guideId: layer.guideId,
+        path: prepareGuidePathForMap(layer.path, view),
+        color: layer.color,
+        focused: true,
+        dimmed: false,
+        arrows: false,
+      })),
+    [fullPaths, view],
   );
+
+  const refreshView = useCallback(() => {
+    const instance = mapRef.current;
+    if (!instance) return;
+    const zoom = instance.getZoom() ?? 0;
+    const bounds = instance.getBounds();
+    if (zoom < LABEL_MIN_ZOOM) {
+      setLabelIds((current) => (current.length === 0 ? current : []));
+    } else if (bounds) {
+      const next: string[] = [];
+      for (const pin of catalogPinsRef.current) {
+        if (!bounds.contains({ lat: pin.latitude, lng: pin.longitude })) continue;
+        next.push(pin.id);
+        if (next.length >= MAX_VISIBLE_LABELS) break;
+      }
+      setLabelIds((current) => (current.join('|') === next.join('|') ? current : next));
+    }
+
+    const nextBounds = bounds
+      ? {
+          south: bounds.getSouthWest().lat(),
+          west: bounds.getSouthWest().lng(),
+          north: bounds.getNorthEast().lat(),
+          east: bounds.getNorthEast().lng(),
+        }
+      : null;
+    setView((current) => {
+      const sameZoom = Math.round(current.zoom) === Math.round(zoom);
+      const sameBounds =
+        current.bounds != null &&
+        nextBounds != null &&
+        current.bounds.south.toFixed(3) === nextBounds.south.toFixed(3) &&
+        current.bounds.west.toFixed(3) === nextBounds.west.toFixed(3) &&
+        current.bounds.north.toFixed(3) === nextBounds.north.toFixed(3) &&
+        current.bounds.east.toFixed(3) === nextBounds.east.toFixed(3);
+      if (sameZoom && (sameBounds || nextBounds == null)) return current;
+      return { zoom, bounds: nextBounds };
+    });
+  }, []);
 
   useEffect(() => {
     const mapInstance = mapRef.current;
     if (!mapInstance || typeof google === 'undefined') return;
+    const pins = visitPinsRef.current;
     const bounds = new google.maps.LatLngBounds();
-    let hasPoint = false;
-    for (const row of rows) {
-      bounds.extend({ lat: row.latitude, lng: row.longitude });
-      hasPoint = true;
-    }
-    if (hasPoint) {
+    if (pins.length > 0) {
+      for (const pin of pins) bounds.extend({ lat: pin.latitude, lng: pin.longitude });
       mapInstance.fitBounds(bounds, 48);
       return;
     }
-    if (relatedMarkers.length === 0) return;
-    for (const row of relatedMarkers) {
-      bounds.extend({ lat: row.latitude as number, lng: row.longitude as number });
-    }
+    const catalog = catalogPinsRef.current;
+    if (catalog.length === 0) return;
+    for (const pin of catalog) bounds.extend({ lat: pin.latitude, lng: pin.longitude });
     mapInstance.fitBounds(bounds, 64);
-  }, [relatedMarkers, rows]);
+  }, [catalogFitKey, visitFitKey]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !selectedVisitId || focusNonce === 0) return;
-    const row = rowsRef.current.find((item) => item.visitId === selectedVisitId);
-    if (!row) return;
-    map.panTo({ lat: row.latitude, lng: row.longitude });
+    const pin = visitPinsRef.current.find((item) => item.visitId === selectedVisitId);
+    if (!pin) return;
+    map.panTo({ lat: pin.latitude, lng: pin.longitude });
     map.setZoom(FOCUS_ZOOM);
   }, [focusNonce, selectedVisitId]);
+
+  const handleLoad = useCallback(
+    (nextMap: google.maps.Map) => {
+      mapRef.current = nextMap;
+      setMap(nextMap);
+      refreshView();
+    },
+    [refreshView],
+  );
+
+  const labeledPins = useMemo(() => {
+    if (labelIds.length === 0) return [];
+    const wanted = new Set(labelIds);
+    return catalogPins.filter((pin) => wanted.has(pin.id));
+  }, [catalogPins, labelIds]);
 
   if (!GOOGLE_MAPS_API_KEY) {
     return (
@@ -210,48 +255,47 @@ export function DatasetProjectVisitImportMap({
         mapContainerStyle={CONTAINER_STYLE}
         center={DEFAULT_CENTER}
         zoom={12}
-        mapTypeId={satellite ? 'hybrid' : 'roadmap'}
-        onLoad={(nextMap) => {
-          mapRef.current = nextMap;
-        }}
-        options={{
-          streetViewControl: false,
-          mapTypeControl: false,
-          fullscreenControl: false,
-          styles: satellite
-            ? undefined
-            : [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }],
-        }}
+        mapTypeId={satellite ? DEFAULT_GOOGLE_MAP_TYPE_ID : 'roadmap'}
+        onLoad={handleLoad}
+        onIdle={refreshView}
+        options={satellite ? HYBRID_OPTIONS : ROADMAP_OPTIONS}
       >
-        <MapInstanceBinder mapRef={mapRef} />
-        <ImportMapPathsLayer layers={pathLayers} />
-        {relatedMarkers.map((row) => (
+        {catalogPins.map((pin) => (
+          <MarkerF
+            key={pin.id}
+            position={pin.position}
+            icon={catalogIcon}
+            clickable={false}
+            zIndex={10}
+          />
+        ))}
+        {labeledPins.map((pin) => (
           <OverlayViewF
-            key={row.id}
-            position={{ lat: row.latitude as number, lng: row.longitude as number }}
+            key={`label-${pin.id}`}
+            position={pin.position}
             mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
           >
-            <div className="relative h-0 w-0">
-              <span className="absolute left-0 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-400 ring-2 ring-white" />
+            <div className="relative h-0 w-0 pointer-events-none">
               <div className="absolute left-3 top-[-10px] whitespace-nowrap rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] text-slate-500 shadow-sm">
-                {row.name} · {row.code}
+                {pin.name} · {pin.code}
               </div>
             </div>
           </OverlayViewF>
         ))}
-        {rows.map((row) => {
-          const selected = row.visitId === selectedVisitId;
+        {visitPins.map((pin) => {
+          const selected = pin.visitId === selectedVisitId;
           return (
             <MarkerF
-              key={row.visitId}
-              position={{ lat: row.latitude, lng: row.longitude }}
-              icon={visitMarkerIcon(selected, row.enabled)}
-              zIndex={selected ? 80 : row.enabled ? 40 : 20}
-              onClick={() => onSelectVisit(row.visitId)}
+              key={pin.visitId}
+              position={pin.position}
+              icon={selected ? visitIcons?.selected : pin.enabled ? visitIcons?.enabled : visitIcons?.disabled}
+              zIndex={selected ? 80 : pin.enabled ? 40 : 20}
+              onClick={() => onSelectVisit(pin.visitId)}
             />
           );
         })}
       </GoogleMap>
+      <GuideMapPathsLayer map={map} layers={pathLayers} />
       <button
         type="button"
         className="absolute right-3 top-3 z-20 h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
@@ -265,3 +309,5 @@ export function DatasetProjectVisitImportMap({
     </div>
   );
 }
+
+export const DatasetProjectVisitImportMap = memo(DatasetProjectVisitImportMapView);

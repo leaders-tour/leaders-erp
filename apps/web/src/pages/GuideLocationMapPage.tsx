@@ -18,6 +18,7 @@ import {
   getTodayInUlaanbaatarDateInputValue,
   GUIDE_PATH_TIME_FILTER_DEBOUNCE_MS,
   normalizeGuideMapPath,
+  prepareGuidePathForMap,
   type GuideProjectDayOption,
 } from '../features/guide/guide-location-map-utils';
 import { buildPlaceCreatePathFromVisit } from '../features/dataset/place-visit-draft';
@@ -205,6 +206,10 @@ function GuideGoogleMap({
   const mapRef = useRef<google.maps.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [view, setView] = useState<{
+    zoom: number;
+    bounds: { south: number; west: number; north: number; east: number } | null;
+  }>({ zoom: 11, bounds: null });
   const [infoWindowGuideId, setInfoWindowGuideId] = useState<string | null>(null);
   const [selectedPlaceVisitId, setSelectedPlaceVisitId] = useState<string | null>(null);
   const projectNameById = useMemo(
@@ -235,13 +240,13 @@ function GuideGoogleMap({
         const dimmed = focusedGuideId != null && !focused;
         return {
           guideId: location.guideId,
-          path: pathsByGuideId.get(location.guideId) ?? [],
+          path: prepareGuidePathForMap(pathsByGuideId.get(location.guideId) ?? [], view),
           color: locationColorByGuideId.get(location.guideId) ?? '#4f46e5',
           focused,
           dimmed,
         };
       }),
-    [locations, pathsByGuideId, locationColorByGuideId, focusedGuideId],
+    [locations, pathsByGuideId, locationColorByGuideId, focusedGuideId, view],
   );
   const focusedLocation =
     locations.find((location) => location.guideId === focusedGuideId) ?? null;
@@ -270,6 +275,33 @@ function GuideGoogleMap({
   const handleMapLoad = useCallback((loadedMap: google.maps.Map) => {
     mapRef.current = loadedMap;
     setMap(loadedMap);
+  }, []);
+
+  const refreshPathView = useCallback(() => {
+    const instance = mapRef.current;
+    if (!instance) return;
+    const zoom = instance.getZoom() ?? 11;
+    const bounds = instance.getBounds();
+    const nextBounds = bounds
+      ? {
+          south: bounds.getSouthWest().lat(),
+          west: bounds.getSouthWest().lng(),
+          north: bounds.getNorthEast().lat(),
+          east: bounds.getNorthEast().lng(),
+        }
+      : null;
+    setView((current) => {
+      const sameZoom = Math.round(current.zoom) === Math.round(zoom);
+      const sameBounds =
+        current.bounds != null &&
+        nextBounds != null &&
+        current.bounds.south.toFixed(3) === nextBounds.south.toFixed(3) &&
+        current.bounds.west.toFixed(3) === nextBounds.west.toFixed(3) &&
+        current.bounds.north.toFixed(3) === nextBounds.north.toFixed(3) &&
+        current.bounds.east.toFixed(3) === nextBounds.east.toFixed(3);
+      if (sameZoom && (sameBounds || nextBounds == null)) return current;
+      return { zoom, bounds: nextBounds };
+    });
   }, []);
 
   const focusPlaceVisit = useCallback((visit: GuidePlaceVisitRow) => {
@@ -373,6 +405,7 @@ function GuideGoogleMap({
           fullscreenControl: true,
         }}
         onLoad={handleMapLoad}
+        onIdle={refreshPathView}
       >
       <GuideMapPathsLayer map={map} layers={pathLayers} />
       {visiblePlaceVisits.map((visit) => {

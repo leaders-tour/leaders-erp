@@ -17,6 +17,7 @@ import {
   getUlaanbaatarDayRange,
   isLogWithinProject,
   isProjectActiveOnDate,
+  projectEndMs,
   groupPinImageUrlsByPlaceVisit,
   resolvePlaceVisitPhotoUrls,
   type LeaderstepsLocationLogRow,
@@ -34,10 +35,95 @@ const MAX_CERT_IMAGE_COUNT = 20;
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const SUPABASE_AUTH_USERS_PAGE_SIZE = 1000;
 const LOCATION_LOGS_PAGE_SIZE = 1000;
+const LOCATION_LOGS_FETCH_CONCURRENCY = 6;
+const LOCATION_LOGS_FETCH_RETRIES = 3;
+const LIVE_LOCATION_PATH_MIN_DISTANCE_METERS = 12;
+const LIVE_LOCATION_PATH_MAX_POINTS = 20_000;
 const PLACE_VISITS_PAGE_SIZE = 1000;
 const PIN_IMAGES_PAGE_SIZE = 1000;
 const PIN_IMAGES_BUCKET = 'pin-images';
 const PIN_IMAGE_SIGNED_URL_TTL_SECONDS = 86_400;
+
+const LAT_METERS = 111_320;
+
+function metersBetweenPoints(
+  left: { latitude: number; longitude: number },
+  right: { latitude: number; longitude: number },
+): number {
+  const latMidRad = ((left.latitude + right.latitude) / 2) * (Math.PI / 180);
+  const dLat = (left.latitude - right.latitude) * LAT_METERS;
+  const dLng = (left.longitude - right.longitude) * LAT_METERS * Math.cos(latMidRad);
+  return Math.hypot(dLat, dLng);
+}
+
+function downsampleGuideLocationPath<T extends { latitude: number; longitude: number }>(
+  path: T[],
+  minDistanceMeters: number,
+  maxPoints: number,
+): T[] {
+  if (path.length <= 2) {
+    return path;
+  }
+
+  const thinned: T[] = [path[0]!];
+  for (let index = 1; index < path.length - 1; index += 1) {
+    const point = path[index]!;
+    const last = thinned[thinned.length - 1]!;
+    if (metersBetweenPoints(last, point) >= minDistanceMeters) {
+      thinned.push(point);
+    }
+  }
+  const end = path[path.length - 1]!;
+  const last = thinned[thinned.length - 1]!;
+  if (last !== end) {
+    thinned.push(end);
+  }
+
+  if (thinned.length <= maxPoints) {
+    return thinned;
+  }
+
+  const stride = (thinned.length - 1) / (maxPoints - 1);
+  const sampled: T[] = [];
+  for (let index = 0; index < maxPoints - 1; index += 1) {
+    sampled.push(thinned[Math.round(index * stride)]!);
+  }
+  sampled.push(thinned[thinned.length - 1]!);
+  return sampled;
+}
+
+async function fetchSupabasePage<T>(
+  label: string,
+  run: () => PromiseLike<{
+    data: T[] | null;
+    count?: number | null;
+    error: { code?: string; message: string } | null;
+  }>,
+): Promise<{ rows: T[]; count: number | null }> {
+  let lastError: { code?: string; message: string } | null = null;
+  for (let attempt = 1; attempt <= LOCATION_LOGS_FETCH_RETRIES; attempt += 1) {
+    const { data, count, error } = await run();
+    if (!error) {
+      return { rows: data ?? [], count: count ?? null };
+    }
+    lastError = error;
+    if (attempt < LOCATION_LOGS_FETCH_RETRIES) {
+      await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
+    }
+  }
+
+  console.error('[guideLiveLocations]', label, lastError?.code, lastError?.message);
+  throw new DomainError('EXTERNAL_SERVICE_ERROR', label);
+}
+
+async function mapInBatches<T, R>(items: T[], concurrency: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  for (let index = 0; index < items.length; index += concurrency) {
+    const batch = items.slice(index, index + concurrency);
+    results.push(...(await Promise.all(batch.map(mapper))));
+  }
+  return results;
+}
 
 interface GuideLocationPointResult {
   latitude: number;
@@ -258,7 +344,10 @@ export class GuideService {
       ]),
     );
     const projectIds = [...projectById.keys()];
-    const logs = await this.fetchLeaderstepsLocationLogs(projectIds);
+    const projectRows = [...projectById.values()];
+    const fromTimestamp = Math.min(...projectRows.map((project) => project.started_at));
+    const toTimestamp = Math.max(...projectRows.map((project) => projectEndMs(project)));
+    const logs = await this.fetchLeaderstepsLocationLogs(projectIds, fromTimestamp, toTimestamp);
     const logsByUserId = new Map<string, GuideLocationPointResult[]>();
 
     for (const log of logs) {
@@ -308,7 +397,11 @@ export class GuideService {
     const results: GuideLiveLocationResult[] = [];
 
     for (const [authUserId, rawPath] of logsByUserId) {
-      const path = rawPath.sort((left, right) => left.recordedAt.localeCompare(right.recordedAt));
+      const path = downsampleGuideLocationPath(
+        rawPath.sort((left, right) => left.recordedAt.localeCompare(right.recordedAt)),
+        LIVE_LOCATION_PATH_MIN_DISTANCE_METERS,
+        LIVE_LOCATION_PATH_MAX_POINTS,
+      );
       const latest = path[path.length - 1];
       if (!latest) {
         continue;
@@ -532,32 +625,55 @@ export class GuideService {
     return displayNameByUserId;
   }
 
-  private async fetchLeaderstepsLocationLogs(projectIds: string[]) {
-    const supabase = getSupabaseAdminClient();
-    const allLogs: LeaderstepsLocationLogRow[] = [];
-    let offset = 0;
-
-    while (true) {
-      const { data, error } = await supabase
-        .from('location_logs')
-        .select('user_id,project_id,lat,lng,accuracy,timestamp')
-        .in('project_id', projectIds)
-        .order('timestamp', { ascending: true })
-        .range(offset, offset + LOCATION_LOGS_PAGE_SIZE - 1);
-
-      if (error) {
-        throw new DomainError('EXTERNAL_SERVICE_ERROR', '가이드 위치 기록을 불러오지 못했습니다.');
-      }
-
-      const page = (data ?? []) as LeaderstepsLocationLogRow[];
-      allLogs.push(...page);
-      if (page.length < LOCATION_LOGS_PAGE_SIZE) {
-        break;
-      }
-      offset += LOCATION_LOGS_PAGE_SIZE;
+  private async fetchLeaderstepsLocationLogs(
+    projectIds: string[],
+    fromTimestamp?: number,
+    toTimestamp?: number,
+  ) {
+    if (projectIds.length === 0) {
+      return [];
     }
 
-    return allLogs;
+    const supabase = getSupabaseAdminClient();
+    const buildQuery = (from: number, to: number, withCount: boolean) => {
+      let query = supabase
+        .from('location_logs')
+        .select('user_id,project_id,lat,lng,accuracy,timestamp', withCount ? { count: 'exact' } : undefined)
+        .in('project_id', projectIds)
+        .order('timestamp', { ascending: true })
+        .order('client_id', { ascending: true })
+        .range(from, to);
+      if (fromTimestamp != null) {
+        query = query.gte('timestamp', fromTimestamp);
+      }
+      if (toTimestamp != null) {
+        query = query.lte('timestamp', toTimestamp);
+      }
+      return query;
+    };
+
+    const first = await fetchSupabasePage<LeaderstepsLocationLogRow>(
+      '가이드 위치 기록을 불러오지 못했습니다.',
+      () => buildQuery(0, LOCATION_LOGS_PAGE_SIZE - 1, true),
+    );
+    const total = first.count ?? first.rows.length;
+    if (total <= first.rows.length) {
+      return first.rows;
+    }
+
+    const offsets: number[] = [];
+    for (let offset = LOCATION_LOGS_PAGE_SIZE; offset < total; offset += LOCATION_LOGS_PAGE_SIZE) {
+      offsets.push(offset);
+    }
+
+    const pages = await mapInBatches(offsets, LOCATION_LOGS_FETCH_CONCURRENCY, (offset) =>
+      fetchSupabasePage<LeaderstepsLocationLogRow>(
+        '가이드 위치 기록을 불러오지 못했습니다.',
+        () => buildQuery(offset, offset + LOCATION_LOGS_PAGE_SIZE - 1, false),
+      ),
+    );
+
+    return [first.rows, ...pages.map((page) => page.rows)].flat();
   }
 
   private async fetchLeaderstepsPlaceVisits(authUserId: string | null, projectIds: string[]) {

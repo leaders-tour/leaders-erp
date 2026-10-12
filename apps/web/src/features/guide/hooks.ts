@@ -40,9 +40,9 @@ export interface LeaderstepsAuthUserRow {
 export interface GuideLocationPointRow {
   latitude: number;
   longitude: number;
-  accuracy: number;
+  accuracy?: number;
   recordedAt: string;
-  projectId: string;
+  projectId?: string;
 }
 
 export interface GuideLiveLocationRow {
@@ -191,9 +191,7 @@ const GUIDE_LIVE_LOCATIONS_QUERY = gql`
       path {
         latitude
         longitude
-        accuracy
         recordedAt
-        projectId
       }
     }
   }
