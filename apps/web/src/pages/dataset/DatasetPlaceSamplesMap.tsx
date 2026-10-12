@@ -107,6 +107,10 @@ function DatasetPlaceSamplesMapView({
   const { isLoaded, loadError } = useGoogleMapsLoader();
   const [satellite, setSatellite] = useState(true);
   const mapRef = useRef<google.maps.Map | null>(null);
+  const clustersRef = useRef(clusters);
+  clustersRef.current = clusters;
+  const selectedClusterIdRef = useRef(selectedClusterId);
+  selectedClusterIdRef.current = selectedClusterId;
   const selected = clusters.find((cluster) => cluster.id === selectedClusterId) ?? null;
   const fitKey = clusters.map((cluster) => `${cluster.id}:${cluster.latitude}:${cluster.longitude}`).join('|');
 
@@ -124,37 +128,40 @@ function DatasetPlaceSamplesMapView({
     };
   }, [isLoaded]);
 
-  const fitBounds = useCallback((map: google.maps.Map) => {
+  const fitAllClusters = useCallback((map: google.maps.Map) => {
     if (typeof google === 'undefined') return;
-    if (clusters.length === 0) return;
+    const current = clustersRef.current;
+    if (current.length === 0) return;
     const bounds = new google.maps.LatLngBounds();
-    for (const cluster of clusters) {
+    for (const cluster of current) {
       bounds.extend({ lat: cluster.latitude, lng: cluster.longitude });
     }
     map.fitBounds(bounds, 48);
-  }, [clusters]);
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    fitBounds(map);
-  }, [fitBounds, fitKey]);
+    fitAllClusters(map);
+  }, [fitAllClusters, fitKey]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !selected || focusNonce === 0 || typeof google === 'undefined') return;
+    if (!map || focusNonce === 0 || typeof google === 'undefined') return;
+    const current = clustersRef.current.find((cluster) => cluster.id === selectedClusterIdRef.current);
+    if (!current) return;
     const bounds = new google.maps.LatLngBounds();
-    bounds.extend({ lat: selected.latitude, lng: selected.longitude });
-    for (const visit of selected.visits) {
+    bounds.extend({ lat: current.latitude, lng: current.longitude });
+    for (const visit of current.visits) {
       bounds.extend({ lat: visit.latitude, lng: visit.longitude });
     }
     map.fitBounds(bounds, 72);
-  }, [focusNonce, selected]);
+  }, [focusNonce]);
 
   const handleLoad = useCallback((nextMap: google.maps.Map) => {
     mapRef.current = nextMap;
-    fitBounds(nextMap);
-  }, [fitBounds]);
+    fitAllClusters(nextMap);
+  }, [fitAllClusters]);
 
   if (!GOOGLE_MAPS_API_KEY) {
     return (
