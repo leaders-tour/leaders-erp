@@ -197,11 +197,49 @@ async function nearbyByDistance(
 
 export type NearbyPlaceKind = 'lodging' | 'restaurant' | 'any';
 
-const NEARBY_KIND_TYPES: Record<NearbyPlaceKind, string[]> = {
-  lodging: ['lodging', 'establishment'],
-  restaurant: ['restaurant', 'establishment'],
-  any: ['establishment'],
+const NEARBY_KIND_TYPE: Record<NearbyPlaceKind, string | null> = {
+  lodging: 'lodging',
+  restaurant: 'restaurant',
+  any: null,
 };
+const PREFERRED_TYPE_SLACK_M = 100;
+
+function distanceM(from: { lat: number; lng: number }, to: { lat: number; lng: number }): number {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const dLat = toRad(to.lat - from.lat);
+  const dLng = toRad(to.lng - from.lng);
+  const a =
+    Math.sin(dLat / 2) ** 2 + Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6_371_000 * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * 구글에 숙소 유형으로 등록되지 않은 캠프가 많아서, 유형 검색 결과만 쓰면 멀리 있는 다른 숙소가 먼저 잡힌다.
+ * 실제 거리순으로 정렬하되, 원하는 유형은 가장 가까운 후보보다 100m 이내로만 멀면 앞에 둔다.
+ */
+export function rankNearbyCandidates(
+  origin: { lat: number; lng: number },
+  preferred: GooglePlaceNameCandidate[],
+  others: GooglePlaceNameCandidate[],
+): GooglePlaceNameCandidate[] {
+  const preferredKeys = new Set(preferred.map((row) => `${row.name}|${row.lat.toFixed(5)}|${row.lng.toFixed(5)}`));
+  const rows = uniqueCandidates([...preferred, ...others]).map((row) => ({
+    row,
+    distance: distanceM(origin, row),
+    preferred: preferredKeys.has(`${row.name}|${row.lat.toFixed(5)}|${row.lng.toFixed(5)}`),
+  }));
+  if (rows.length === 0) return [];
+  const nearest = Math.min(...rows.map((item) => item.distance));
+  const boosted = (item: (typeof rows)[number]) =>
+    item.preferred && item.distance <= nearest + PREFERRED_TYPE_SLACK_M;
+  return rows
+    .sort((left, right) => {
+      const leftBoost = boosted(left);
+      if (leftBoost !== boosted(right)) return leftBoost ? -1 : 1;
+      return left.distance - right.distance;
+    })
+    .map((item) => item.row);
+}
 
 export async function nearbyGooglePlaceNames(input: {
   lat: number;
@@ -213,12 +251,10 @@ export async function nearbyGooglePlaceNames(input: {
 
   const location = { lat: input.lat, lng: input.lng };
   try {
-    const rankedTypes = NEARBY_KIND_TYPES[input.kind ?? 'any'];
-    let places: GooglePlaceNameCandidate[] = [];
-    for (const type of rankedTypes) {
-      places = toCandidates(await nearbyByDistance(service, location, type)).slice(0, NEARBY_LIMIT);
-      if (places.length > 0) break;
-    }
+    const preferredType = NEARBY_KIND_TYPE[input.kind ?? 'any'];
+    const preferred = preferredType ? toCandidates(await nearbyByDistance(service, location, preferredType)) : [];
+    const others = toCandidates(await nearbyByDistance(service, location, 'establishment'));
+    let places = rankNearbyCandidates(location, preferred, others).slice(0, NEARBY_LIMIT);
     if (places.length === 0) {
       places = toCandidates(await nearbySearch(service, { location, radius: NEARBY_RADIUS_M })).slice(0, NEARBY_LIMIT);
     }

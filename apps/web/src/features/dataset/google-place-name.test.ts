@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { isBusinessPlace, looksLikeAdminName, mapPlaceResult } from './google-place-name';
+import { isBusinessPlace, looksLikeAdminName, mapPlaceResult, rankNearbyCandidates } from './google-place-name';
+
+describe('rankNearbyCandidates', () => {
+  const origin = { lat: 44.5777, lng: 105.7202 };
+  const camp = { name: 'Mandala Miracle', address: null, lat: 44.5782, lng: 105.7203 };
+  const resort = { name: 'Zaisan Resort', address: null, lat: 44.5815, lng: 105.7200 };
+
+  it('picks a much closer establishment over a farther lodging', () => {
+    expect(rankNearbyCandidates(origin, [resort], [camp, resort])[0]?.name).toBe('Mandala Miracle');
+  });
+
+  it('keeps the preferred type first when it is about as close', () => {
+    const shop = { name: '편의점', address: null, lat: 44.5778, lng: 105.7202 };
+    expect(rankNearbyCandidates(origin, [camp], [shop, camp])[0]?.name).toBe('Mandala Miracle');
+  });
+});
 
 describe('looksLikeAdminName', () => {
   it('treats district labels as admin names', () => {
