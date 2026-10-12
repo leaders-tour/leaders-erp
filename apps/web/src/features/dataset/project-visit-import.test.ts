@@ -103,7 +103,7 @@ describe('nearby matching', () => {
     expect(findNearbyPlace(47.8512, 106.912, [area], 80)).toBeNull();
   });
 
-  it('picks the nearest area without a distance cap', () => {
+  it('picks the nearest area only within 10km', () => {
     const ub = place({
       id: 'area-ub',
       name: '울란바토르',
@@ -119,6 +119,28 @@ describe('nearby matching', () => {
       longitude: 103.7,
     });
     expect(findNearestArea(47.85, 106.91, [ub, desert])?.place.id).toBe('area-ub');
+    expect(findNearestArea(45.0, 105.0, [ub, desert])).toBeNull();
+  });
+
+  it('does not suggest a parent area 400km away', () => {
+    const desert = place({
+      id: 'area-desert',
+      name: '미니사막',
+      placeType: 'AREA',
+      latitude: 44.2,
+      longitude: 103.7,
+    });
+    const suggestion = suggestImportRow(
+      visit({
+        centerLatitude: 47.85,
+        centerLongitude: 106.91,
+        description: 'Tsagaan Suvarga',
+      }),
+      [desert],
+    );
+    expect(suggestion.parentPlaceId).toBeNull();
+    expect(suggestion.parentDistanceM).toBeNull();
+    expect(suggestion.regionId).toBeNull();
   });
 
   it('suggests lodging accommodation only within 300m', () => {

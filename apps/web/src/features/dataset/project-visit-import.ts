@@ -4,6 +4,7 @@ import { visitToPlaceDraft, type PlaceVisitDraftSource } from './place-visit-dra
 
 export const REUSE_BASE_DISTANCE_M = 150;
 export const LODGING_ACCOMMODATION_MAX_DISTANCE_M = 300;
+export const PARENT_AREA_MAX_DISTANCE_M = 10_000;
 
 export interface CatalogPlaceMatchSource {
   id: string;
@@ -146,6 +147,7 @@ export function findNearestArea(
   for (const place of withCoords(places)) {
     if (place.placeType !== 'AREA') continue;
     const distanceM = haversineMeters({ latitude, longitude }, place);
+    if (distanceM > PARENT_AREA_MAX_DISTANCE_M) continue;
     if (!best || distanceM < best.distanceM) {
       best = { place, distanceM };
     }
