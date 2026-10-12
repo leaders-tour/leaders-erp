@@ -40,6 +40,7 @@ const MEAL_LABEL_TO_OPTION: Record<string, MealOption | null> = {
   호텔조식: MealOption.HotelBreakfast,
   현지식: MealOption.LocalMeal,
   현지식당: MealOption.LocalRestaurant,
+  간편식: MealOption.SimpleMeal,
   샤브샤브: MealOption.ShabuShabu,
   삼겹살파티: MealOption.PorkParty,
   '삼겹살 뷔페': MealOption.PorkBuffet,
