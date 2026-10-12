@@ -43,7 +43,7 @@ import {
   type SampleMapPlace,
 } from './DatasetPlaceSamplesMap';
 
-const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE'];
+const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
 const MAX_PROJECTS = 200;
 const EMPTY_PLACES: CatalogPlaceRow[] = [];
 const NOTE_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ulaanbaatar' });
@@ -206,7 +206,10 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
     };
   }, [geocodedIds, rows]);
 
-  const visibleRows = rows.filter((row) => row.kind === tab && row.projectCount >= minProjects);
+  const visibleRows = useMemo(
+    () => rows.filter((row) => row.kind === tab && row.projectCount >= minProjects),
+    [minProjects, rows, tab],
+  );
   const counts = {
     new_place: rows.filter((row) => row.kind === 'new_place' && row.projectCount >= minProjects).length,
     existing_fix: rows.filter((row) => row.kind === 'existing_fix' && row.projectCount >= minProjects).length,
@@ -292,7 +295,7 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
                 placeType: row.placeType,
                 country: row.country?.trim() || '몽골',
                 regionId: row.regionId || null,
-                parentPlaceId: row.parentPlaceId || null,
+                parentPlaceId: row.placeType === 'AREA' ? null : row.parentPlaceId || null,
                 latitude: row.latitude,
                 longitude: row.longitude,
                 visitJudgmentType: row.visitJudgmentType,
@@ -591,9 +594,13 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
                                   <select
                                     className={compactSelectClass()}
                                     value={row.placeType}
-                                    onChange={(event) =>
-                                      updateRow(row.id, { placeType: event.target.value as CatalogPlaceType })
-                                    }
+                                    onChange={(event) => {
+                                      const placeType = event.target.value as CatalogPlaceType;
+                                      updateRow(
+                                        row.id,
+                                        placeType === 'AREA' ? { placeType, parentPlaceId: null } : { placeType },
+                                      );
+                                    }}
                                   >
                                     {PLACE_TYPES.map((type) => (
                                       <option key={type} value={type}>
@@ -616,6 +623,7 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
                                 <select
                                   className={compactSelectClass()}
                                   value={row.parentPlaceId ?? ''}
+                                  disabled={row.placeType === 'AREA'}
                                   onChange={(event) => {
                                     const parent = areaPlaces.find((place) => place.id === event.target.value) ?? null;
                                     updateRow(row.id, {
