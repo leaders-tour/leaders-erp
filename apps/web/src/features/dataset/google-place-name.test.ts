@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { isBusinessPlace, looksLikeAdminName, mapPlaceResult, rankNearbyCandidates } from './google-place-name';
+import {
+  isBusinessPlace,
+  looksLikeAdminName,
+  mapPlaceResult,
+  nameLanguageScore,
+  rankNearbyCandidates,
+  toKoreanPlaceName,
+} from './google-place-name';
 
 describe('rankNearbyCandidates', () => {
   const origin = { lat: 44.5777, lng: 105.7202 };
@@ -13,6 +20,30 @@ describe('rankNearbyCandidates', () => {
   it('keeps the preferred type first when it is about as close', () => {
     const shop = { name: '편의점', address: null, lat: 44.5778, lng: 105.7202 };
     expect(rankNearbyCandidates(origin, [camp], [shop, camp])[0]?.name).toBe('Mandala Miracle');
+  });
+
+  it('prefers a nearby Korean name over a slightly closer foreign name', () => {
+    const japanese = { name: 'ブルド砂丘', address: null, lat: 44.5777, lng: 105.7202 };
+    const korean = { name: '바양작', address: null, lat: 44.5781, lng: 105.7203 };
+    expect(rankNearbyCandidates(origin, [], [japanese, korean])[0]?.name).toBe('바양작');
+  });
+});
+
+describe('toKoreanPlaceName', () => {
+  it('maps well-known destinations to Korean names', () => {
+    expect(toKoreanPlaceName('Kharkhorin')).toBe('하르허린');
+    expect(toKoreanPlaceName('ブルド砂丘')).toBe('바양작');
+    expect(toKoreanPlaceName('Bichigt Khad Tourist Camp')).toBe('비칙트 하드');
+    expect(toKoreanPlaceName('미니사막 A캠프')).toBe('미니사막 A캠프');
+    expect(toKoreanPlaceName('Mandala Restaurant')).toBe('Mandala Restaurant');
+  });
+});
+
+describe('nameLanguageScore', () => {
+  it('ranks Hangul above Latin, Cyrillic, and Japanese', () => {
+    expect(nameLanguageScore('하르허린')).toBeGreaterThan(nameLanguageScore('Kharkhorin'));
+    expect(nameLanguageScore('Kharkhorin')).toBeGreaterThan(nameLanguageScore('Хархорин'));
+    expect(nameLanguageScore('Хархорин')).toBeGreaterThan(nameLanguageScore('ブルド砂丘'));
   });
 });
 
@@ -45,6 +76,7 @@ describe('mapPlaceResult', () => {
       address: 'Mongolia',
       lat: 47.85,
       lng: 106.91,
+      placeId: null,
     });
   });
 
