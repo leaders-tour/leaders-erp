@@ -74,6 +74,21 @@ type GuidePlaceVisit {
   photoUrls: [String!]!
 }
 
+type GuidePlaceVisitSample {
+  id: ID!
+  projectId: ID!
+  projectName: String!
+  centerLatitude: Float!
+  centerLongitude: Float!
+  startedAt: DateTime!
+  endedAt: DateTime!
+  durationMs: Int!
+  radiusMeters: Float!
+  pointCount: Int!
+  pinType: String
+  description: String
+}
+
 type GuideLiveLocation {
   guideId: ID!
   guideNameKo: String!
@@ -133,6 +148,7 @@ extend type Query {
   leaderstepsActiveProjects(date: String, all: Boolean): [LeaderstepsActiveProject!]!
   guideLiveLocations(projectId: ID, date: String): [GuideLiveLocation!]!
   guidePlaceVisits(guideId: ID, projectId: ID, date: String): [GuidePlaceVisit!]!
+  guidePlaceVisitSamples(projectIds: [ID!]!): [GuidePlaceVisitSample!]!
 }
 
 extend type Mutation {

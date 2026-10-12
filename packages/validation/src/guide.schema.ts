@@ -95,6 +95,10 @@ export const guidePlaceVisitsFilterSchema = z
     '날짜, 프로젝트, 참여자 중 하나 이상이 필요합니다.',
   );
 
+export const guidePlaceVisitSamplesFilterSchema = z.object({
+  projectIds: z.array(z.string().uuid()).min(1).max(200),
+});
+
 export type GuideCreateInput = z.infer<typeof guideCreateSchema>;
 export type GuideUpdateInput = z.infer<typeof guideUpdateSchema>;
 export type GuideLeaderstepsAuthLinkInput = z.infer<typeof guideLeaderstepsAuthLinkSchema>;
@@ -103,3 +107,4 @@ export type GuideLocationFilterInput = z.infer<typeof guideLocationFilterSchema>
 export type LeaderstepsActiveProjectsFilterInput = z.infer<typeof leaderstepsActiveProjectsFilterSchema>;
 export type GuideLiveLocationFilterInput = z.infer<typeof guideLiveLocationFilterSchema>;
 export type GuidePlaceVisitsFilterInput = z.infer<typeof guidePlaceVisitsFilterSchema>;
+export type GuidePlaceVisitSamplesFilterInput = z.infer<typeof guidePlaceVisitSamplesFilterSchema>;

@@ -1,4 +1,4 @@
-import { gql, useMutation, useQuery } from '@apollo/client';
+import { gql, useLazyQuery, useMutation, useQuery } from '@apollo/client';
 import { useState } from 'react';
 import { useAuth } from '../auth/context';
 import { runUploadMutation } from '../../lib/upload-mutation';
@@ -80,6 +80,21 @@ export interface GuidePlaceVisitRow {
   pinType: string | null;
   description: string | null;
   photoUrls: string[];
+}
+
+export interface GuidePlaceVisitSampleRow {
+  id: string;
+  projectId: string;
+  projectName: string;
+  centerLatitude: number;
+  centerLongitude: number;
+  startedAt: string;
+  endedAt: string;
+  durationMs: number;
+  radiusMeters: number;
+  pointCount: number;
+  pinType: string | null;
+  description: string | null;
 }
 
 const GUIDE_FRAGMENT = gql`
@@ -212,6 +227,25 @@ const GUIDE_PLACE_VISITS_QUERY = gql`
       pinType
       description
       photoUrls
+    }
+  }
+`;
+
+const GUIDE_PLACE_VISIT_SAMPLES_QUERY = gql`
+  query GuidePlaceVisitSamples($projectIds: [ID!]!) {
+    guidePlaceVisitSamples(projectIds: $projectIds) {
+      id
+      projectId
+      projectName
+      centerLatitude
+      centerLongitude
+      startedAt
+      endedAt
+      durationMs
+      radiusMeters
+      pointCount
+      pinType
+      description
     }
   }
 `;
@@ -405,6 +439,22 @@ export function useGuidePlaceVisits(options?: {
     placeVisits: data?.guidePlaceVisits ?? [],
     loading,
     errorMessage: error?.message ?? null,
+  };
+}
+
+export function useGuidePlaceVisitSamples() {
+  const [load, { data, loading, error, called }] = useLazyQuery<{
+    guidePlaceVisitSamples: GuidePlaceVisitSampleRow[];
+  }>(GUIDE_PLACE_VISIT_SAMPLES_QUERY, {
+    fetchPolicy: 'network-only',
+  });
+
+  return {
+    samples: data?.guidePlaceVisitSamples ?? [],
+    loading,
+    called,
+    errorMessage: error?.message ?? null,
+    loadSamples: (projectIds: string[]) => load({ variables: { projectIds } }),
   };
 }
 

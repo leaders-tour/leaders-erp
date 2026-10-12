@@ -58,6 +58,11 @@ export const guideResolver = {
       args: { guideId?: string | null; projectId?: string | null; date?: string | null },
       ctx: AppContext,
     ) => new GuideService(ctx.prisma).listGuidePlaceVisits(args.guideId, args.projectId, args.date),
+    guidePlaceVisitSamples: (
+      _parent: unknown,
+      args: { projectIds: string[] },
+      ctx: AppContext,
+    ) => new GuideService(ctx.prisma).listGuidePlaceVisitSamples(args.projectIds),
   },
   Mutation: {
     createGuide: (_parent: unknown, args: GuideCreateArgs, ctx: AppContext) =>

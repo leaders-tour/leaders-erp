@@ -5,6 +5,7 @@ import {
   guideLeaderstepsAuthLinkSchema,
   guideLeaderstepsAuthUnlinkSchema,
   guideLiveLocationFilterSchema,
+  guidePlaceVisitSamplesFilterSchema,
   guidePlaceVisitsFilterSchema,
   leaderstepsActiveProjectsFilterSchema,
   guideUpdateSchema,
@@ -40,6 +41,8 @@ const LOCATION_LOGS_FETCH_RETRIES = 3;
 const LIVE_LOCATION_PATH_MIN_DISTANCE_METERS = 12;
 const LIVE_LOCATION_PATH_MAX_POINTS = 20_000;
 const PLACE_VISITS_PAGE_SIZE = 1000;
+const PLACE_VISIT_SAMPLES_PROJECT_CHUNK = 50;
+const PLACE_VISIT_SAMPLES_FETCH_CONCURRENCY = 4;
 const PIN_IMAGES_PAGE_SIZE = 1000;
 const PIN_IMAGES_BUCKET = 'pin-images';
 const PIN_IMAGE_SIGNED_URL_TTL_SECONDS = 86_400;
@@ -168,6 +171,21 @@ interface GuidePlaceVisitResult {
   pinType: string | null;
   description: string | null;
   photoUrls: string[];
+}
+
+interface GuidePlaceVisitSampleResult {
+  id: string;
+  projectId: string;
+  projectName: string;
+  centerLatitude: number;
+  centerLongitude: number;
+  startedAt: string;
+  endedAt: string;
+  durationMs: number;
+  radiusMeters: number;
+  pointCount: number;
+  pinType: string | null;
+  description: string | null;
 }
 
 function readMetadataText(metadata: unknown, keys: readonly string[]): string | null {
@@ -512,6 +530,79 @@ export class GuideService {
     return results.sort((left, right) => left.startedAt.localeCompare(right.startedAt));
   }
 
+  async listGuidePlaceVisitSamples(projectIds: string[]) {
+    const parsed = guidePlaceVisitSamplesFilterSchema.safeParse({ projectIds });
+    if (!parsed.success) {
+      throw createValidationError('Invalid guide place visit samples filter', parsed.error);
+    }
+
+    const uniqueIds = [...new Set(parsed.data.projectIds)];
+    const projects = await this.fetchLeaderstepsProjectsByIds(uniqueIds);
+    if (projects.length === 0) {
+      return [];
+    }
+
+    const projectById = new Map(
+      projects.map((project) => [project.id, this.toLeaderstepsProjectRow(project)]),
+    );
+    const foundIds = [...projectById.keys()];
+    const chunks: string[][] = [];
+    for (let index = 0; index < foundIds.length; index += PLACE_VISIT_SAMPLES_PROJECT_CHUNK) {
+      chunks.push(foundIds.slice(index, index + PLACE_VISIT_SAMPLES_PROJECT_CHUNK));
+    }
+
+    const visitChunks = await mapInBatches(
+      chunks,
+      PLACE_VISIT_SAMPLES_FETCH_CONCURRENCY,
+      (chunk) => this.fetchLeaderstepsPlaceVisits(null, chunk),
+    );
+    const results: GuidePlaceVisitSampleResult[] = [];
+
+    for (const visit of visitChunks.flat()) {
+      const project = projectById.get(visit.project_id);
+      if (!project) {
+        continue;
+      }
+
+      const startedAtMs = Number(visit.started_at);
+      const endedAtMs = Number(visit.ended_at);
+      const centerLatitude = Number(visit.center_lat);
+      const centerLongitude = Number(visit.center_lng);
+      const durationMs = Number(visit.duration_ms);
+      const radiusMeters = Number(visit.radius_meters);
+      const pointCount = Number(visit.point_count);
+
+      if (
+        !isLogWithinProject(startedAtMs, project) ||
+        !Number.isFinite(centerLatitude) ||
+        !Number.isFinite(centerLongitude) ||
+        !Number.isFinite(durationMs) ||
+        !Number.isFinite(radiusMeters) ||
+        !Number.isFinite(pointCount) ||
+        !Number.isFinite(endedAtMs)
+      ) {
+        continue;
+      }
+
+      results.push({
+        id: visit.id,
+        projectId: visit.project_id,
+        projectName: project.name,
+        centerLatitude,
+        centerLongitude,
+        startedAt: new Date(startedAtMs).toISOString(),
+        endedAt: new Date(endedAtMs).toISOString(),
+        durationMs: Math.round(durationMs),
+        radiusMeters,
+        pointCount: Math.round(pointCount),
+        pinType: visit.pin_type,
+        description: visit.description,
+      });
+    }
+
+    return results.sort((left, right) => left.startedAt.localeCompare(right.startedAt));
+  }
+
   private async resolveProjectsForVisitFilter(
     projectId?: string | null,
     date?: string | null,
@@ -545,19 +636,36 @@ export class GuideService {
   private async fetchLeaderstepsProjectById(
     projectId: string,
   ): Promise<LeaderstepsActiveProjectResult | null> {
-    const { data, error } = await getSupabaseAdminClient()
-      .from('projects')
-      .select('id,name,started_at,scheduled_ended_at,ended_at,is_active')
-      .eq('id', projectId)
-      .maybeSingle();
+    const projects = await this.fetchLeaderstepsProjectsByIds([projectId]);
+    return projects[0] ?? null;
+  }
 
-    if (error) {
-      throw new DomainError('EXTERNAL_SERVICE_ERROR', 'Leadersteps 프로젝트를 불러오지 못했습니다.');
+  private async fetchLeaderstepsProjectsByIds(
+    projectIds: string[],
+  ): Promise<LeaderstepsActiveProjectResult[]> {
+    if (projectIds.length === 0) {
+      return [];
     }
-    if (!data) {
-      return null;
+
+    const chunks: string[][] = [];
+    for (let index = 0; index < projectIds.length; index += PLACE_VISIT_SAMPLES_PROJECT_CHUNK) {
+      chunks.push(projectIds.slice(index, index + PLACE_VISIT_SAMPLES_PROJECT_CHUNK));
     }
-    return this.toLeaderstepsProjectResult(data as LeaderstepsProjectRow);
+
+    const pages = await mapInBatches(chunks, PLACE_VISIT_SAMPLES_FETCH_CONCURRENCY, async (chunk) => {
+      const { data, error } = await getSupabaseAdminClient()
+        .from('projects')
+        .select('id,name,started_at,scheduled_ended_at,ended_at,is_active')
+        .in('id', chunk);
+
+      if (error) {
+        throw new DomainError('EXTERNAL_SERVICE_ERROR', 'Leadersteps 프로젝트를 불러오지 못했습니다.');
+      }
+
+      return (data ?? []) as LeaderstepsProjectRow[];
+    });
+
+    return pages.flat().map((project) => this.toLeaderstepsProjectResult(project));
   }
 
   private toLeaderstepsProjectResult(project: LeaderstepsProjectRow): LeaderstepsActiveProjectResult {

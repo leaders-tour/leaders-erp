@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   guideLiveLocationFilterSchema,
   guideLocationFilterSchema,
+  guidePlaceVisitSamplesFilterSchema,
   guidePlaceVisitsFilterSchema,
   leaderstepsActiveProjectsFilterSchema,
 } from './guide.schema';
@@ -82,5 +83,27 @@ describe('guidePlaceVisitsFilterSchema', () => {
 
   it('requires at least a person, project, or date', () => {
     expect(guidePlaceVisitsFilterSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('guidePlaceVisitSamplesFilterSchema', () => {
+  it('accepts 1 to 200 project ids', () => {
+    expect(
+      guidePlaceVisitSamplesFilterSchema.safeParse({
+        projectIds: ['5bd109e7-7bd3-4932-9fde-ee5b18942005'],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects an empty list or more than 200 ids', () => {
+    expect(guidePlaceVisitSamplesFilterSchema.safeParse({ projectIds: [] }).success).toBe(false);
+    expect(
+      guidePlaceVisitSamplesFilterSchema.safeParse({
+        projectIds: Array.from({ length: 201 }, (_, index) => {
+          const suffix = String(index + 1).padStart(12, '0');
+          return `5bd109e7-7bd3-4932-9fde-${suffix}`;
+        }),
+      }).success,
+    ).toBe(false);
   });
 });
