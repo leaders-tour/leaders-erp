@@ -97,6 +97,25 @@ export interface GuidePlaceVisitSampleRow {
   description: string | null;
 }
 
+export type GuideVisitRegion =
+  | 'GOBI'
+  | 'CENTRAL'
+  | 'KHUVSGUL'
+  | 'TERELJ'
+  | 'ULAANBAATAR'
+  | 'OTHER';
+
+export interface GuideProjectVisitRegionCountRow {
+  region: GuideVisitRegion;
+  visitCount: number;
+}
+
+export interface GuideProjectVisitRegionRow {
+  projectId: string;
+  totalVisits: number;
+  regions: GuideProjectVisitRegionCountRow[];
+}
+
 const GUIDE_FRAGMENT = gql`
   fragment GuideFields on Guide {
     id
@@ -246,6 +265,19 @@ const GUIDE_PLACE_VISIT_SAMPLES_QUERY = gql`
       pointCount
       pinType
       description
+    }
+  }
+`;
+
+const GUIDE_PROJECT_VISIT_REGIONS_QUERY = gql`
+  query GuideProjectVisitRegions {
+    guideProjectVisitRegions {
+      projectId
+      totalVisits
+      regions {
+        region
+        visitCount
+      }
     }
   }
 `;
@@ -437,6 +469,20 @@ export function useGuidePlaceVisits(options?: {
 
   return {
     placeVisits: data?.guidePlaceVisits ?? [],
+    loading,
+    errorMessage: error?.message ?? null,
+  };
+}
+
+export function useGuideProjectVisitRegions() {
+  const { data, loading, error } = useQuery<{
+    guideProjectVisitRegions: GuideProjectVisitRegionRow[];
+  }>(GUIDE_PROJECT_VISIT_REGIONS_QUERY, {
+    fetchPolicy: 'cache-and-network',
+  });
+
+  return {
+    regions: data?.guideProjectVisitRegions ?? [],
     loading,
     errorMessage: error?.message ?? null,
   };

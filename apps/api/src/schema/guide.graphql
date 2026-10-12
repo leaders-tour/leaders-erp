@@ -111,6 +111,26 @@ type LeaderstepsActiveProject {
   isActive: Boolean!
 }
 
+enum GuideVisitRegion {
+  GOBI
+  CENTRAL
+  KHUVSGUL
+  TERELJ
+  ULAANBAATAR
+  OTHER
+}
+
+type GuideProjectVisitRegionCount {
+  region: GuideVisitRegion!
+  visitCount: Int!
+}
+
+type GuideProjectVisitRegion {
+  projectId: ID!
+  totalVisits: Int!
+  regions: [GuideProjectVisitRegionCount!]!
+}
+
 input GuideCreateInput {
   nameKo: String!
   nameMn: String
@@ -149,6 +169,7 @@ extend type Query {
   guideLiveLocations(projectId: ID, date: String): [GuideLiveLocation!]!
   guidePlaceVisits(guideId: ID, projectId: ID, date: String): [GuidePlaceVisit!]!
   guidePlaceVisitSamples(projectIds: [ID!]!): [GuidePlaceVisitSample!]!
+  guideProjectVisitRegions: [GuideProjectVisitRegion!]!
 }
 
 extend type Mutation {

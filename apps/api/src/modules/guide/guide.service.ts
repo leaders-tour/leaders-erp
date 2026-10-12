@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import type { User as SupabaseAuthUser } from '@supabase/supabase-js';
+import { classifyVisitRegion, VISIT_REGION_ORDER, type VisitRegion } from '@tour/domain';
 import {
   guideCreateSchema,
   guideLeaderstepsAuthLinkSchema,
@@ -186,6 +187,21 @@ interface GuidePlaceVisitSampleResult {
   pointCount: number;
   pinType: string | null;
   description: string | null;
+}
+
+type GuideVisitRegionKey = VisitRegion | 'OTHER';
+
+interface GuideProjectVisitRegionResult {
+  projectId: string;
+  totalVisits: number;
+  regions: Array<{ region: GuideVisitRegionKey; visitCount: number }>;
+}
+
+interface LeaderstepsPlaceVisitCoordRow {
+  project_id: string;
+  center_lat: number | string;
+  center_lng: number | string;
+  started_at: number | string;
 }
 
 function readMetadataText(metadata: unknown, keys: readonly string[]): string | null {
@@ -603,6 +619,54 @@ export class GuideService {
     return results.sort((left, right) => left.startedAt.localeCompare(right.startedAt));
   }
 
+  async listGuideProjectVisitRegions(): Promise<GuideProjectVisitRegionResult[]> {
+    const projects = await this.fetchLeaderstepsProjects();
+    const projectById = new Map(
+      projects.map((project) => [project.id, this.toLeaderstepsProjectRow(this.toLeaderstepsProjectResult(project))]),
+    );
+    const visits = await this.fetchLeaderstepsPlaceVisitCoords();
+    const totals = new Map<string, number>();
+    const counts = new Map<string, Record<VisitRegion, number>>();
+
+    const emptyCounts = (): Record<VisitRegion, number> => ({
+      GOBI: 0,
+      CENTRAL: 0,
+      KHUVSGUL: 0,
+      TERELJ: 0,
+      ULAANBAATAR: 0,
+    });
+
+    for (const visit of visits) {
+      const project = projectById.get(visit.project_id);
+      if (!project) continue;
+
+      const startedAtMs = Number(visit.started_at);
+      const latitude = Number(visit.center_lat);
+      const longitude = Number(visit.center_lng);
+      if (!isLogWithinProject(startedAtMs, project) || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        continue;
+      }
+
+      totals.set(visit.project_id, (totals.get(visit.project_id) ?? 0) + 1);
+      const current = counts.get(visit.project_id) ?? emptyCounts();
+      const region = classifyVisitRegion(latitude, longitude);
+      if (region) current[region] += 1;
+      counts.set(visit.project_id, current);
+    }
+
+    return projects.map((project) => {
+      const totalVisits = totals.get(project.id) ?? 0;
+      const current = counts.get(project.id) ?? emptyCounts();
+      const regions: GuideProjectVisitRegionResult['regions'] = VISIT_REGION_ORDER
+        .filter((region) => current[region] > 0)
+        .map((region) => ({ region, visitCount: current[region] }));
+      if (totalVisits > 0 && regions.length === 0) {
+        regions.push({ region: 'OTHER', visitCount: totalVisits });
+      }
+      return { projectId: project.id, totalVisits, regions };
+    });
+  }
+
   private async resolveProjectsForVisitFilter(
     projectId?: string | null,
     date?: string | null,
@@ -782,6 +846,33 @@ export class GuideService {
     );
 
     return [first.rows, ...pages.map((page) => page.rows)].flat();
+  }
+
+  private async fetchLeaderstepsPlaceVisitCoords(): Promise<LeaderstepsPlaceVisitCoordRow[]> {
+    const supabase = getSupabaseAdminClient();
+    const allVisits: LeaderstepsPlaceVisitCoordRow[] = [];
+    let offset = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('place_visits')
+        .select('project_id,center_lat,center_lng,started_at')
+        .order('started_at', { ascending: true })
+        .range(offset, offset + PLACE_VISITS_PAGE_SIZE - 1);
+
+      if (error) {
+        throw new DomainError('EXTERNAL_SERVICE_ERROR', '장소 방문 기록을 불러오지 못했습니다.');
+      }
+
+      const page = (data ?? []) as LeaderstepsPlaceVisitCoordRow[];
+      allVisits.push(...page);
+      if (page.length < PLACE_VISITS_PAGE_SIZE) {
+        break;
+      }
+      offset += PLACE_VISITS_PAGE_SIZE;
+    }
+
+    return allVisits;
   }
 
   private async fetchLeaderstepsPlaceVisits(authUserId: string | null, projectIds: string[]) {

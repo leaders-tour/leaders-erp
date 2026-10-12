@@ -1,3 +1,9 @@
+import {
+  VISIT_REGION_FILTER_LABEL,
+  VISIT_REGION_FILTER_ORDER,
+  visitMatchesSelectedRegions,
+  type VisitRegionFilter,
+} from '@tour/domain';
 import { Input, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -35,7 +41,9 @@ import {
 import { formatUlaanbaatarProjectDate } from '../../features/guide/guide-location-map-utils';
 import {
   useGuidePlaceVisitSamples,
+  useGuideProjectVisitRegions,
   useLeaderstepsActiveProjects,
+  type GuideProjectVisitRegionRow,
 } from '../../features/guide/hooks';
 import {
   DatasetPlaceSamplesMap,
@@ -45,6 +53,32 @@ import {
 
 const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
 const MAX_PROJECTS = 200;
+const REGION_CHIP_CLASS: Record<VisitRegionFilter, { idle: string; active: string }> = {
+  GOBI: {
+    idle: 'border-amber-200 bg-white text-amber-800 hover:bg-amber-50',
+    active: 'border-amber-500 bg-amber-500 text-white',
+  },
+  CENTRAL: {
+    idle: 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50',
+    active: 'border-emerald-500 bg-emerald-500 text-white',
+  },
+  KHUVSGUL: {
+    idle: 'border-blue-200 bg-white text-blue-800 hover:bg-blue-50',
+    active: 'border-blue-500 bg-blue-500 text-white',
+  },
+  TERELJ: {
+    idle: 'border-teal-200 bg-white text-teal-800 hover:bg-teal-50',
+    active: 'border-teal-500 bg-teal-500 text-white',
+  },
+  ULAANBAATAR: {
+    idle: 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+    active: 'border-slate-600 bg-slate-600 text-white',
+  },
+  OTHER: {
+    idle: 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50',
+    active: 'border-slate-400 bg-slate-100 text-slate-700',
+  },
+};
 const EMPTY_PLACES: CatalogPlaceRow[] = [];
 const NOTE_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ulaanbaatar' });
 const DURATION_FORMATTER = new Intl.NumberFormat('ko-KR');
@@ -83,8 +117,22 @@ function compactSelectClass() {
   return `${datasetControlClass} h-8 min-w-[8rem] px-2 text-xs`;
 }
 
+function projectHasRegion(summary: GuideProjectVisitRegionRow | undefined, region: VisitRegionFilter): boolean {
+  return Boolean(summary?.regions.some((item) => item.region === region));
+}
+
+function formatProjectRegionTags(summary: GuideProjectVisitRegionRow | undefined): string {
+  if (!summary || summary.totalVisits === 0) return '방문 없음';
+  const tags = VISIT_REGION_FILTER_ORDER.flatMap((region) => {
+    const count = summary.regions.find((item) => item.region === region)?.visitCount;
+    return count ? [`${VISIT_REGION_FILTER_LABEL[region]} ${count}`] : [];
+  });
+  return tags.join(' · ') || '방문 없음';
+}
+
 export function DatasetPlaceSamplesPage(): JSX.Element {
   const [projectQuery, setProjectQuery] = useState('');
+  const [selectedRegions, setSelectedRegions] = useState<VisitRegionFilter[]>([]);
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<ClusterTab>('new_place');
   const [minProjects, setMinProjects] = useState<MinProjects>(2);
@@ -97,6 +145,7 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
   const [applySummary, setApplySummary] = useState<ApplySummary | null>(null);
 
   const projectsQuery = useLeaderstepsActiveProjects(undefined, { all: true });
+  const regionQuery = useGuideProjectVisitRegions();
   const placesQuery = useCatalogPlaces();
   const samplesQuery = useGuidePlaceVisitSamples();
   const [createPlace] = useCreateCatalogPlace();
@@ -105,22 +154,54 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
   const places = placesQuery.data?.catalogPlaces ?? EMPTY_PLACES;
   const projects = projectsQuery.projects;
   const areaPlaces = useMemo(() => places.filter((place) => place.placeType === 'AREA'), [places]);
+  const regionByProjectId = useMemo(() => {
+    const next = new Map<string, GuideProjectVisitRegionRow>();
+    for (const row of regionQuery.regions) next.set(row.projectId, row);
+    return next;
+  }, [regionQuery.regions]);
+  const regionProjectCounts = useMemo(() => {
+    const counts = Object.fromEntries(VISIT_REGION_FILTER_ORDER.map((region) => [region, 0])) as Record<
+      VisitRegionFilter,
+      number
+    >;
+    for (const row of regionQuery.regions) {
+      for (const item of row.regions) {
+        counts[item.region] += 1;
+      }
+    }
+    return counts;
+  }, [regionQuery.regions]);
 
   const filteredProjects = useMemo(() => {
     const keyword = projectQuery.trim().toLowerCase();
-    const list = [...projects].sort((left, right) => left.name.localeCompare(right.name, 'ko'));
-    if (!keyword) return list;
-    return list.filter((project) => project.name.toLowerCase().includes(keyword));
-  }, [projectQuery, projects]);
+    return [...projects]
+      .sort((left, right) => left.name.localeCompare(right.name, 'ko'))
+      .filter((project) => {
+        const summary = regionByProjectId.get(project.id);
+        if (selectedRegions.length > 0 && !selectedRegions.some((region) => projectHasRegion(summary, region))) {
+          return false;
+        }
+        if (!keyword) return true;
+        return project.name.toLowerCase().includes(keyword);
+      });
+  }, [projectQuery, projects, regionByProjectId, selectedRegions]);
 
   const sampleKey = samplesQuery.samples.map((sample) => sample.id).join('|');
+  const regionFilterKey = [...selectedRegions].sort().join('|');
+  const filteredSamples = useMemo(
+    () =>
+      samplesQuery.samples.filter((sample) =>
+        visitMatchesSelectedRegions(sample.centerLatitude, sample.centerLongitude, selectedRegions),
+      ),
+    [samplesQuery.samples, selectedRegions],
+  );
   const placesRef = useRef(places);
   placesRef.current = places;
 
   useEffect(() => {
     if (!samplesQuery.called || samplesQuery.loading) return;
     const next = clusterVisitSamples(
-      samplesQuery.samples,
+      filteredSamples,
       placesRef.current.map((place) => ({
         id: place.id,
         code: place.code,
@@ -144,7 +225,7 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
     setGeocodedIds(new Set());
     setApplySummary(null);
     setApplyError(null);
-  }, [placesQuery.data, sampleKey, samplesQuery.called, samplesQuery.loading, samplesQuery.samples]);
+  }, [filteredSamples, placesQuery.data, regionFilterKey, sampleKey, samplesQuery.called, samplesQuery.loading]);
 
   useEffect(() => {
     if (typeof google === 'undefined') return;
@@ -387,6 +468,40 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
                   {selectedProjectIds.size}/{MAX_PROJECTS}
                 </span>
               </div>
+              <div className="grid gap-1.5">
+                <p className="text-xs font-medium text-slate-500" title="GPS 기반으로 분류한 지역입니다">
+                  지역
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {VISIT_REGION_FILTER_ORDER.map((region) => {
+                    const active = selectedRegions.includes(region);
+                    return (
+                      <button
+                        key={region}
+                        type="button"
+                        title="GPS 기반으로 분류한 지역입니다"
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                          REGION_CHIP_CLASS[region][active ? 'active' : 'idle']
+                        }`}
+                        onClick={() => {
+                          setSelectedRegions((current) =>
+                            current.includes(region)
+                              ? current.filter((item) => item !== region)
+                              : [...current, region],
+                          );
+                        }}
+                      >
+                        {VISIT_REGION_FILTER_LABEL[region]} {regionProjectCounts[region]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {regionQuery.loading ? (
+                <p className="text-[11px] text-[#8B83B8]">GPS 지역을 세는 중…</p>
+              ) : regionQuery.errorMessage ? (
+                <p className="text-[11px] text-rose-600">{regionQuery.errorMessage}</p>
+              ) : null}
               <DatasetField label="검색">
                 <Input
                   className={datasetControlClass}
@@ -432,6 +547,9 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
                           <span className="text-[11px] text-[#8B83B8]">
                             {formatUlaanbaatarProjectDate(project.startedAt)} ~{' '}
                             {formatUlaanbaatarProjectDate(project.endedAt ?? project.scheduledEndedAt)}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            {formatProjectRegionTags(regionByProjectId.get(project.id))}
                           </span>
                         </span>
                       </label>
@@ -486,7 +604,9 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
                         : samplesQuery.errorMessage
                           ? samplesQuery.errorMessage
                           : samplesQuery.called
-                            ? `방문 ${DURATION_FORMATTER.format(samplesQuery.samples.length)}회 · 묶음 ${rows.length}개`
+                            ? selectedRegions.length > 0
+                              ? `방문 ${DURATION_FORMATTER.format(samplesQuery.samples.length)}회 중 지역 안 ${DURATION_FORMATTER.format(filteredSamples.length)}회 · 묶음 ${rows.length}개`
+                              : `방문 ${DURATION_FORMATTER.format(samplesQuery.samples.length)}회 · 묶음 ${rows.length}개`
                             : '왼쪽에서 프로젝트를 고르고 표본을 불러오세요.'}
                     </p>
                   </div>
