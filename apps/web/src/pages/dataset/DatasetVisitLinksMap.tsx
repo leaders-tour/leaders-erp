@@ -61,14 +61,23 @@ function placeIcon(): google.maps.Icon {
   };
 }
 
+const SELECT_ZOOM = 15;
+
 interface DatasetVisitLinksMapProps {
   visits: VisitLinkMapRow[];
   places: VisitLinkMapPlace[];
   selectedId: string | null;
+  focusNonce?: number;
   onSelect: (id: string) => void;
 }
 
-function DatasetVisitLinksMapView({ visits, places, selectedId, onSelect }: DatasetVisitLinksMapProps): JSX.Element {
+function DatasetVisitLinksMapView({
+  visits,
+  places,
+  selectedId,
+  focusNonce = 0,
+  onSelect,
+}: DatasetVisitLinksMapProps): JSX.Element {
   const { isLoaded, loadError } = useGoogleMapsLoader();
   const mapRef = useRef<google.maps.Map | null>(null);
   const visitsRef = useRef(visits);
@@ -100,7 +109,8 @@ function DatasetVisitLinksMapView({ visits, places, selectedId, onSelect }: Data
     const map = mapRef.current;
     if (!map || !selected || typeof google === 'undefined') return;
     map.panTo({ lat: selected.latitude, lng: selected.longitude });
-  }, [selectedId]);
+    if (focusNonce > 0) map.setZoom(SELECT_ZOOM);
+  }, [focusNonce, selected, selectedId]);
 
   if (!GOOGLE_MAPS_API_KEY) {
     return (

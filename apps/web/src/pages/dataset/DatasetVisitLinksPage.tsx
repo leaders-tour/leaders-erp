@@ -51,6 +51,7 @@ export function DatasetVisitLinksPage(): JSX.Element {
   const [tab, setTab] = useState<QueueTab>('needs_review');
   const [regionId, setRegionId] = useState<string>('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusNonce, setFocusNonce] = useState(0);
   const [pickPlaceId, setPickPlaceId] = useState<string>('');
   const [analyzeResult, setAnalyzeResult] = useState<CatalogVisitLinkAnalyzeResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -163,6 +164,11 @@ export function DatasetVisitLinksPage(): JSX.Element {
     }
   };
 
+  const handleSelectVisit = (id: string) => {
+    setSelectedId(id);
+    setFocusNonce((value) => value + 1);
+  };
+
   const handleClear = async (row: CatalogVisitLinkRow) => {
     setErrorMessage(null);
     try {
@@ -213,6 +219,7 @@ export function DatasetVisitLinksPage(): JSX.Element {
             onChange={(id) => {
               setTab(id as QueueTab);
               setSelectedId(null);
+              setFocusNonce(0);
             }}
           />
           <DatasetField label="지역">
@@ -222,6 +229,7 @@ export function DatasetVisitLinksPage(): JSX.Element {
               onChange={(event) => {
                 setRegionId(event.target.value);
                 setSelectedId(null);
+                setFocusNonce(0);
               }}
             >
               {regions.map((region) => (
@@ -239,7 +247,8 @@ export function DatasetVisitLinksPage(): JSX.Element {
               visits={rows}
               places={mapPlaces}
               selectedId={selectedRowId}
-              onSelect={setSelectedId}
+              focusNonce={focusNonce}
+              onSelect={handleSelectVisit}
             />
           </DatasetCard>
 
@@ -327,7 +336,7 @@ export function DatasetVisitLinksPage(): JSX.Element {
                 <tr
                   key={row.id}
                   className={row.id === selectedRowId ? 'bg-[#F3F0FF]' : 'cursor-pointer hover:bg-slate-50'}
-                  onClick={() => setSelectedId(row.id)}
+                  onClick={() => handleSelectVisit(row.id)}
                 >
                   <Td className="whitespace-nowrap text-xs">{TIME_FORMAT.format(new Date(row.startedAt))}</Td>
                   <Td className="text-xs">{row.description || '이름 없음'}</Td>

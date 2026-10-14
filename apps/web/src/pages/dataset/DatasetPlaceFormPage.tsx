@@ -11,6 +11,7 @@ import {
   nearbyGooglePlaceNames,
   type GooglePlaceNameCandidate,
 } from '../../features/dataset/google-place-name';
+import { searchAccommodations } from '../../features/dataset/accommodation-search';
 import { parsePlaceVisitQuery, visitToPlaceDraft } from '../../features/dataset/place-visit-draft';
 import { getTodayInUlaanbaatarDateInputValue } from '../../features/guide/guide-location-map-utils';
 import {
@@ -32,7 +33,9 @@ import {
 } from '../../features/dataset/labels';
 import { datasetTheme } from '../../features/dataset/theme';
 import { DatasetButton, DatasetCard, DatasetField, DatasetPageShell, DatasetTabs, datasetControlClass } from '../../features/dataset/ui';
-import { DatasetPlaceFormMap } from './DatasetPlaceFormMap';
+import { DatasetPlaceFormMap, type PlaceFormMapFocus } from './DatasetPlaceFormMap';
+
+const PLACE_FOCUS_ZOOM = 15;
 
 type LocationLookupMode = 'visit' | 'google' | 'catalog';
 
@@ -222,6 +225,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const [accommodationId, setAccommodationId] = useState(
     canLinkAccommodation(initialType) ? searchParams.get('accommodationId') ?? '' : '',
   );
+  const [accommodationQuery, setAccommodationQuery] = useState('');
   const [lodgingRole, setLodgingRole] = useState<(typeof LODGING_ROLES)[number]['id']>('PICKUP');
   const [latInput, setLatInput] = useState(visitDraft ? String(visitDraft.latitude) : '');
   const [lngInput, setLngInput] = useState(visitDraft ? String(visitDraft.longitude) : '');
@@ -238,8 +242,8 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const [nearbyPlaces, setNearbyPlaces] = useState<GooglePlaceNameCandidate[]>([]);
   const [nearbyError, setNearbyError] = useState<string | null>(null);
   const [nearbyLoading, setNearbyLoading] = useState(false);
-  const [focus, setFocus] = useState<{ lat: number; lng: number } | null>(
-    visitDraft ? { lat: visitDraft.latitude, lng: visitDraft.longitude } : null,
+  const [focus, setFocus] = useState<PlaceFormMapFocus | null>(
+    visitDraft ? { lat: visitDraft.latitude, lng: visitDraft.longitude, zoom: PLACE_FOCUS_ZOOM } : null,
   );
   const [formError, setFormError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(!isEdit);
@@ -427,6 +431,11 @@ export function DatasetPlaceFormPage(): JSX.Element {
     () => catalogSearchResults.filter((row) => row.latitude != null && row.longitude != null),
     [catalogSearchResults],
   );
+  const parentLocksAccommodation = Boolean(parentPlace?.accommodationId);
+  const accommodationSearchResults = useMemo(
+    () => searchAccommodations(accommodations, accommodationQuery),
+    [accommodationQuery, accommodations],
+  );
 
   const regionPath = [country, regions.find((row) => row.id === regionId)?.name, parentPlace?.name]
     .filter(Boolean)
@@ -457,11 +466,16 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const saving = createState.loading || updateState.loading;
   const canSave = Boolean(name.trim()) && !coordPairError && !judgmentError;
 
-  const applyCoords = (lat: number, lng: number, source: 'map' | 'input' | 'paste' | 'visit') => {
+  const applyCoords = (
+    lat: number,
+    lng: number,
+    source: 'map' | 'input' | 'paste' | 'visit',
+    options?: { zoom?: number },
+  ) => {
     setLatInput(String(lat));
     setLngInput(String(lng));
     setCoordSource(source);
-    setFocus({ lat, lng });
+    setFocus({ lat, lng, zoom: options?.zoom, at: Date.now() });
   };
 
   const applyBusinessName = (nextName: string): boolean => {
@@ -488,7 +502,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
 
   const applyPlaceCandidate = (row: { name: string | null; lat: number; lng: number }) => {
     if (row.name && !applyBusinessName(row.name)) return;
-    applyCoords(row.lat, row.lng, 'map');
+    applyCoords(row.lat, row.lng, 'map', { zoom: PLACE_FOCUS_ZOOM });
   };
 
   const applyExistingCatalogPlace = (row: CatalogPlaceRow) => {
@@ -499,7 +513,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
       if (row.country) setCountry(row.country);
       if (row.regionId) setRegionId(row.regionId);
     }
-    applyCoords(row.latitude, row.longitude, 'map');
+    applyCoords(row.latitude, row.longitude, 'map', { zoom: PLACE_FOCUS_ZOOM });
   };
 
   const changeLookupMode = (next: LocationLookupMode) => {
@@ -529,7 +543,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const applyVisitDraft = (visit: GuidePlaceVisitRow) => {
     const draft = visitToPlaceDraft(visit);
     setSelectedVisitId(visit.id);
-    applyCoords(draft.latitude, draft.longitude, 'visit');
+    applyCoords(draft.latitude, draft.longitude, 'visit', { zoom: PLACE_FOCUS_ZOOM });
     setVisitJudgmentType(draft.visitJudgmentType);
     setRadiusInput(String(draft.visitRadiusM));
     setStayMinutesInput(draft.visitMinStayMinutes != null ? String(draft.visitMinStayMinutes) : '');
@@ -824,32 +838,73 @@ export function DatasetPlaceFormPage(): JSX.Element {
 
               {showLodgingSection ? (
                 <>
-              <Section
-                n={sectionN.lodging}
-                title="연결 숙소"
-                extra={
-                  <select
-                    className={datasetControlClass}
-                    value={accommodationId}
-                    onChange={(event) => setAccommodationId(event.target.value)}
-                    disabled={Boolean(parentPlace?.accommodationId)}
-                  >
-                    <option value="">숙소 선택</option>
-                    {accommodations.map((row) => (
-                      <option key={row.id} value={row.id}>
-                        {row.name}
-                      </option>
-                    ))}
-                  </select>
-                }
-              >
+              <Section n={sectionN.lodging} title="연결 숙소">
+                  {parentLocksAccommodation ? (
+                    <p className="text-xs text-[#8B83B8]">상위 장소의 숙소 연결을 따릅니다.</p>
+                  ) : (
+                    <>
+                      <Input
+                        className={datasetControlClass}
+                        value={accommodationQuery}
+                        onChange={(event) => setAccommodationQuery(event.target.value)}
+                        placeholder="숙소명 · 목적지 · 지역"
+                      />
+                      {accommodationQuery.trim() ? (
+                        accommodationSearchResults.length === 0 ? (
+                          <p className="text-xs text-[#8B83B8]">일치하는 숙소가 없습니다.</p>
+                        ) : (
+                          <ul className="grid max-h-48 gap-1 overflow-auto">
+                            {accommodationSearchResults.map((row) => {
+                              const selected = row.id === accommodationId;
+                              return (
+                                <li key={row.id}>
+                                  <button
+                                    type="button"
+                                    className={`w-full rounded-lg border px-3 py-2 text-left text-xs hover:bg-[#F8F6FF] ${
+                                      selected ? 'border-[#5B4BD6] bg-[#F8F6FF]' : 'border-slate-100'
+                                    }`}
+                                    onClick={() => {
+                                      setAccommodationId(row.id);
+                                      setAccommodationQuery('');
+                                    }}
+                                  >
+                                    {row.name}
+                                    <span className="mt-0.5 block text-[#9A93C2]">
+                                      {[row.destination, row.region].filter(Boolean).join(' · ') || '지역 미등록'}
+                                      {selected ? ' · 선택됨' : ' · 이 숙소 사용'}
+                                    </span>
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )
+                      ) : (
+                        <p className="text-xs text-[#8B83B8]">숙소명으로 검색하세요. 어기·우기처럼 한글 별칭도 찾습니다.</p>
+                      )}
+                    </>
+                  )}
                   {accommodation ? (
                     <div className="rounded-xl border border-slate-100 bg-[#F8F6FF] px-3 py-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <Link className={`text-sm font-semibold ${datasetTheme.link}`} to={`/accommodations/${accommodation.id}`}>
                           {accommodation.name}
                         </Link>
-                        <span className="text-xs text-[#8B83B8]">{firstRoom?.level ?? '등급 미등록'}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-xs text-[#8B83B8]">{firstRoom?.level ?? '등급 미등록'}</span>
+                          {parentLocksAccommodation ? null : (
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-[#5B4BD6] hover:underline"
+                              onClick={() => {
+                                setAccommodationId('');
+                                setAccommodationQuery('');
+                              }}
+                            >
+                              연결 해제
+                            </button>
+                          )}
+                        </span>
                       </div>
                       <p className="mt-1 text-xs text-[#9A93C2]">
                         {accommodation.id} · {accommodation.destination} · {accommodation.region}
@@ -857,7 +912,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                     </div>
                   ) : (
                     <p className="text-sm text-slate-500">
-                      {parentPlace?.accommodationId
+                      {parentLocksAccommodation
                         ? '상위 장소의 숙소 연결을 따릅니다.'
                         : isRestaurant
                           ? '이 식당이 속한 숙소 원본을 고릅니다. 새 숙소는 여기서 만들지 않습니다.'

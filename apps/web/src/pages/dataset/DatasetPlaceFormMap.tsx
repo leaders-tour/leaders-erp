@@ -9,12 +9,19 @@ import { DEFAULT_GOOGLE_MAP_TYPE_ID, useGoogleMapsLoader } from '../../lib/googl
 const DEFAULT_CENTER = { lat: 47.8512, lng: 106.912 };
 const CONTAINER_STYLE = { width: '100%', height: '100%' };
 
+export interface PlaceFormMapFocus {
+  lat: number;
+  lng: number;
+  zoom?: number;
+  at?: number;
+}
+
 interface DatasetPlaceFormMapProps {
   relatedPlaces: CatalogPlaceRow[];
   existingPlaces?: CatalogPlaceRow[];
   latitude: number | null;
   longitude: number | null;
-  focus: { lat: number; lng: number } | null;
+  focus: PlaceFormMapFocus | null;
   visitRadiusM?: number | null;
   visits?: GuidePlaceVisitRow[];
   selectedVisitId?: string | null;
@@ -61,6 +68,7 @@ export function DatasetPlaceFormMap({
     if (!map || typeof google === 'undefined') return;
     if (focus) {
       map.panTo(focus);
+      if (focus.zoom != null) map.setZoom(focus.zoom);
       return;
     }
     if (hasDraft) {
