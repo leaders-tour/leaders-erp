@@ -54,6 +54,21 @@ export const VISIT_LINK_STATUS_LABEL: Record<CatalogVisitLinkStatus, string> = {
   MANUAL: '수동 연결',
 };
 
+export const VISIT_LINK_REVIEW_REASON_LABEL: Record<CatalogVisitLinkReviewReason, string> = {
+  OVERLAP: '장소 범위 겹침',
+  NONE: '근처 등록 장소 없음',
+};
+
+export function visitLinkReviewReasonLabel(
+  status: CatalogVisitLinkStatus,
+  reason: CatalogVisitLinkReviewReason | null,
+): string {
+  if (reason) return VISIT_LINK_REVIEW_REASON_LABEL[reason];
+  if (status === 'REVIEW') return '검토 필요';
+  if (status === 'UNLINKED') return '근처 등록 장소 없음';
+  return '—';
+}
+
 export function defaultVisitJudgmentType(placeType: CatalogPlaceType): CatalogVisitJudgmentType {
   return placeType === 'GATE' ? 'PASS' : 'STAY';
 }

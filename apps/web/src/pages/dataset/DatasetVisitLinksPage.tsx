@@ -12,7 +12,7 @@ import {
   type CatalogVisitLinkAnalyzeResult,
   type CatalogVisitLinkRow,
 } from '../../features/dataset/hooks';
-import { DatasetPageFooter, VISIT_LINK_STATUS_LABEL, type CatalogVisitLinkStatus } from '../../features/dataset/labels';
+import { DatasetPageFooter, visitLinkReviewReasonLabel, VISIT_LINK_STATUS_LABEL, type CatalogVisitLinkStatus } from '../../features/dataset/labels';
 import { datasetTheme } from '../../features/dataset/theme';
 import {
   DatasetButton,
@@ -23,7 +23,16 @@ import {
   DatasetTabs,
   datasetControlClass,
 } from '../../features/dataset/ui';
+import { findVisitNeighbors, sliceLocationPath, visitPathWindowMs } from '../../features/dataset/visit-link-context';
+import { useGuideLiveLocations } from '../../features/guide/hooks';
 import { DatasetVisitLinksMap } from './DatasetVisitLinksMap';
+
+const VISIT_DATE_FORMAT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Ulaanbaatar',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 
 type QueueTab = 'needs_review' | 'linked';
 
@@ -78,8 +87,37 @@ export function DatasetVisitLinksPage(): JSX.Element {
   const analyzedRegions = useRef(new Set<VisitRegion>());
 
   const rows = linksQuery.data?.catalogVisitLinks ?? [];
+  const regionRows = regionLinksQuery.data?.catalogVisitLinks ?? [];
   const selected = rows.find((row) => row.id === selectedId) ?? rows[0] ?? null;
   const selectedRowId = selected?.id ?? null;
+  const selectedDate = selected ? VISIT_DATE_FORMAT.format(new Date(selected.startedAt)) : null;
+  const projectLinksQuery = useCatalogVisitLinks({
+    projectId: selected?.projectId ?? null,
+  });
+  const locationsQuery = useGuideLiveLocations({
+    projectId: selected?.projectId,
+    date: selectedDate ?? undefined,
+    skip: !selected?.projectId,
+    pollInterval: 0,
+  });
+  const neighborSource = projectLinksQuery.data?.catalogVisitLinks ?? regionRows;
+  const neighbors = useMemo(
+    () => findVisitNeighbors(neighborSource, selected),
+    [neighborSource, selected],
+  );
+  const contextPath = useMemo(() => {
+    if (!selected) return [];
+    const window = visitPathWindowMs({
+      selectedStartedAt: selected.startedAt,
+      selectedEndedAt: selected.endedAt,
+      prevStartedAt: neighbors.prev?.startedAt,
+      nextEndedAt: neighbors.next?.endedAt,
+    });
+    const sliced = locationsQuery.locations
+      .map((location) => sliceLocationPath(location.path, window.fromMs, window.toMs))
+      .sort((left, right) => right.length - left.length);
+    return sliced[0] ?? [];
+  }, [locationsQuery.locations, neighbors.next?.endedAt, neighbors.prev?.startedAt, selected]);
 
   const regionPlaces = useMemo(
     () =>
@@ -248,6 +286,9 @@ export function DatasetVisitLinksPage(): JSX.Element {
               places={mapPlaces}
               selectedId={selectedRowId}
               focusNonce={focusNonce}
+              previous={neighbors.prev}
+              next={neighbors.next}
+              contextPath={contextPath}
               onSelect={handleSelectVisit}
             />
           </DatasetCard>
@@ -261,6 +302,14 @@ export function DatasetVisitLinksPage(): JSX.Element {
                   <p className="text-xs text-slate-500">
                     {TIME_FORMAT.format(new Date(selected.startedAt))} · {formatDuration(selected.durationMs)}
                     {selected.place ? ` · ${selected.place.code} ${selected.place.name}` : ''}
+                  </p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    확인 사유 · {visitLinkReviewReasonLabel(selected.status, selected.reviewReason)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    이전 {neighbors.prev ? `${TIME_FORMAT.format(new Date(neighbors.prev.startedAt))} ${neighbors.prev.description || neighbors.prev.place?.name || '방문'}` : '없음'}
+                    {' → '}
+                    다음 {neighbors.next ? `${TIME_FORMAT.format(new Date(neighbors.next.startedAt))} ${neighbors.next.description || neighbors.next.place?.name || '방문'}` : '없음'}
                   </p>
                 </div>
                 {selected.candidates.length > 0 ? (
@@ -327,6 +376,7 @@ export function DatasetVisitLinksPage(): JSX.Element {
                 <Th>시각</Th>
                 <Th>방문</Th>
                 <Th>상태</Th>
+                <Th>확인이 필요한 사유</Th>
                 <Th>장소</Th>
                 <Th>거리</Th>
               </tr>
@@ -341,13 +391,14 @@ export function DatasetVisitLinksPage(): JSX.Element {
                   <Td className="whitespace-nowrap text-xs">{TIME_FORMAT.format(new Date(row.startedAt))}</Td>
                   <Td className="text-xs">{row.description || '이름 없음'}</Td>
                   <Td className="text-xs">{VISIT_LINK_STATUS_LABEL[row.status]}</Td>
+                  <Td className="text-xs">{visitLinkReviewReasonLabel(row.status, row.reviewReason)}</Td>
                   <Td className="text-xs">{row.place ? `${row.place.code} ${row.place.name}` : '—'}</Td>
                   <Td className="text-xs">{row.distanceM != null ? `${row.distanceM}m` : '—'}</Td>
                 </tr>
               ))}
               {rows.length === 0 && !linksQuery.loading ? (
                 <tr>
-                  <Td colSpan={5} className="text-sm text-slate-500">
+                  <Td colSpan={6} className="text-sm text-slate-500">
                     표시할 방문이 없습니다.
                   </Td>
                 </tr>

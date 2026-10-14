@@ -780,7 +780,7 @@ export function useCatalogVisitLinks(variables: {
 }) {
   return useQuery<{ catalogVisitLinks: CatalogVisitLinkRow[] }>(VISIT_LINKS_QUERY, {
     variables,
-    skip: !variables.regionId,
+    skip: !variables.regionId && !variables.projectId,
   });
 }
 
