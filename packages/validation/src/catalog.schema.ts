@@ -149,6 +149,25 @@ export const catalogPlaceBatchUpdateSchema = z.object({
   regionId: optionalId,
 });
 
+const catalogVisitLinkStatusSchema = z.enum(['AUTO', 'REVIEW', 'UNLINKED', 'MANUAL']);
+const catalogVisitRegionSchema = z.enum(['GOBI', 'CENTRAL', 'KHUVSGUL', 'TERELJ', 'ULAANBAATAR', 'OTHER']);
+
+export const catalogVisitLinkAnalyzeSchema = z.object({
+  projectIds: z.array(z.string().min(1)).max(200).optional(),
+  visitRegion: catalogVisitRegionSchema.optional(),
+});
+
+export const catalogVisitLinkConfirmSchema = z.object({
+  id: z.string().min(1),
+  placeId: z.string().min(1),
+});
+
+export const catalogVisitLinkListSchema = z.object({
+  statuses: z.array(catalogVisitLinkStatusSchema).max(4).optional(),
+  regionId: optionalId,
+  projectId: optionalId,
+});
+
 export type CatalogRegionCreateInput = z.infer<typeof catalogRegionCreateSchema>;
 export type CatalogRegionUpdateInput = z.infer<typeof catalogRegionUpdateSchema>;
 export type CatalogPlaceCreateInput = z.infer<typeof catalogPlaceCreateSchema>;
@@ -165,3 +184,6 @@ export type CatalogJourneyCreateInput = z.infer<typeof catalogJourneyCreateSchem
 export type CatalogJourneyUpdateInput = z.infer<typeof catalogJourneyUpdateSchema>;
 export type CatalogJourneyPlacementInput = z.infer<typeof catalogJourneyPlacementSchema>;
 export type CatalogPlaceBatchUpdateInput = z.infer<typeof catalogPlaceBatchUpdateSchema>;
+export type CatalogVisitLinkAnalyzeInput = z.infer<typeof catalogVisitLinkAnalyzeSchema>;
+export type CatalogVisitLinkConfirmInput = z.infer<typeof catalogVisitLinkConfirmSchema>;
+export type CatalogVisitLinkListInput = z.infer<typeof catalogVisitLinkListSchema>;

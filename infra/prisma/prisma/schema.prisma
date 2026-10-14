@@ -2306,6 +2306,18 @@ enum CatalogBlockShape {
   SET
 }
 
+enum CatalogVisitLinkStatus {
+  AUTO
+  REVIEW
+  UNLINKED
+  MANUAL
+}
+
+enum CatalogVisitLinkReviewReason {
+  OVERLAP
+  NONE
+}
+
 model CatalogRegion {
   id          String             @id @default(uuid(7))
   code        String             @unique
@@ -2352,6 +2364,7 @@ model CatalogPlace {
   fromRoutes    CatalogRoute[]  @relation("CatalogRouteFrom")
   toRoutes      CatalogRoute[]  @relation("CatalogRouteTo")
   elements      CatalogElement[]
+  visitLinks    CatalogVisitLink[]
   accommodation Accommodation?  @relation(fields: [accommodationId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
@@ -2361,6 +2374,35 @@ model CatalogPlace {
   @@index([regionId])
   @@index([parentPlaceId])
   @@index([accommodationId])
+}
+
+model CatalogVisitLink {
+  id           String                        @id @default(uuid(7))
+  visitId      String                        @unique
+  projectId    String
+  latitude     Float
+  longitude    Float
+  startedAt    DateTime
+  endedAt      DateTime
+  durationMs   Int
+  description  String?
+  visitRegion  String?
+  placeId      String?
+  status       CatalogVisitLinkStatus
+  distanceM    Int?
+  reviewReason CatalogVisitLinkReviewReason?
+  candidates   Json
+  analyzedAt   DateTime
+
+  place CatalogPlace? @relation(fields: [placeId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([projectId])
+  @@index([placeId])
+  @@index([visitRegion])
 }
 
 model CatalogRoute {

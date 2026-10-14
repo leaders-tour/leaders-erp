@@ -35,6 +35,27 @@ enum CatalogBlockShape {
   SET
 }
 
+enum CatalogVisitLinkStatus {
+  AUTO
+  REVIEW
+  UNLINKED
+  MANUAL
+}
+
+enum CatalogVisitLinkReviewReason {
+  OVERLAP
+  NONE
+}
+
+enum CatalogVisitRegion {
+  GOBI
+  CENTRAL
+  KHUVSGUL
+  TERELJ
+  ULAANBAATAR
+  OTHER
+}
+
 type CatalogRegion {
   id: ID!
   code: String!
@@ -222,6 +243,54 @@ type CatalogBatchResult {
   message: String
 }
 
+type CatalogVisitLinkCandidate {
+  placeId: ID!
+  name: String!
+  code: String!
+  distanceM: Int!
+}
+
+type CatalogVisitLink {
+  id: ID!
+  visitId: ID!
+  projectId: ID!
+  latitude: Float!
+  longitude: Float!
+  startedAt: DateTime!
+  endedAt: DateTime!
+  durationMs: Int!
+  description: String
+  visitRegion: CatalogVisitRegion
+  placeId: ID
+  place: CatalogPlace
+  status: CatalogVisitLinkStatus!
+  distanceM: Int
+  reviewReason: CatalogVisitLinkReviewReason
+  candidates: [CatalogVisitLinkCandidate!]!
+  analyzedAt: DateTime!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type CatalogVisitLinkAnalyzeResult {
+  scanned: Int!
+  upserted: Int!
+  auto: Int!
+  review: Int!
+  unlinked: Int!
+  protectedManual: Int!
+}
+
+input CatalogVisitLinkAnalyzeInput {
+  projectIds: [ID!]
+  visitRegion: CatalogVisitRegion
+}
+
+input CatalogVisitLinkConfirmInput {
+  id: ID!
+  placeId: ID!
+}
+
 input CatalogRegionCreateInput {
   name: String!
   country: String
@@ -378,6 +447,7 @@ extend type Query {
   catalogJourneys(status: CatalogUsageStatus): [CatalogJourney!]!
   catalogElementUsages(elementId: ID!): [CatalogUsageRef!]!
   catalogChangeLogs(targetType: String, targetId: ID): [CatalogChangeLog!]!
+  catalogVisitLinks(statuses: [CatalogVisitLinkStatus!], regionId: ID, projectId: ID): [CatalogVisitLink!]!
 }
 
 extend type Mutation {
@@ -401,4 +471,7 @@ extend type Mutation {
   addCatalogJourneyPlacement(input: CatalogJourneyPlacementInput!): CatalogJourney!
   removeCatalogJourneyPlacement(id: ID!): CatalogJourney!
   batchUpdateCatalogPlaces(input: CatalogPlaceBatchUpdateInput!): [CatalogBatchResult!]!
+  analyzeCatalogVisitLinks(input: CatalogVisitLinkAnalyzeInput): CatalogVisitLinkAnalyzeResult!
+  confirmCatalogVisitLink(input: CatalogVisitLinkConfirmInput!): CatalogVisitLink!
+  clearCatalogVisitLink(id: ID!): CatalogVisitLink!
 }

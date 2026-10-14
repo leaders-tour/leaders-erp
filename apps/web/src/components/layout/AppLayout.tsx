@@ -244,6 +244,11 @@ const baseNavItems: NavItem[] = [
     icon: DatasetIcon,
     section: '일정 데이터 관리',
     sectionBadge: '신규',
+    children: [
+      { path: '/dataset/places', label: '장소 목록' },
+      { path: '/dataset/places/from-samples', label: '표본으로 장소 만들기' },
+      { path: '/dataset/places/visit-links', label: '방문 연결' },
+    ],
   },
   {
     path: '/dataset/elements',

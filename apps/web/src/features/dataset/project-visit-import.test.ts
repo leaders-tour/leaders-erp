@@ -143,6 +143,20 @@ describe('nearby matching', () => {
     expect(suggestion.regionId).toBeNull();
   });
 
+  it('assigns 중부 from GPS when catalog regions are available', () => {
+    const suggestion = suggestImportRow(
+      visit({
+        centerLatitude: 47.7588,
+        centerLongitude: 102.8129,
+        description: '우기 호수',
+      }),
+      [],
+      [{ id: 'crg_central', name: '중부', status: 'ACTIVE' }],
+    );
+    expect(suggestion.parentPlaceId).toBeNull();
+    expect(suggestion.regionId).toBe('crg_central');
+  });
+
   it('suggests lodging accommodation only within 300m', () => {
     const lodge = place({
       id: 'lodge-1',

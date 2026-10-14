@@ -6,6 +6,9 @@ import type {
   CatalogPlaceType,
   CatalogUsageStatus,
   CatalogVisitJudgmentType,
+  CatalogVisitLinkReviewReason,
+  CatalogVisitLinkStatus,
+  CatalogVisitRegion,
 } from './labels';
 
 export interface CatalogRegionRow {
@@ -649,4 +652,130 @@ export function useBatchUpdateCatalogPlaces() {
   return useMutation(BATCH_PLACES, {
     refetchQueries: [{ query: PLACES_QUERY }, { query: LOGS_QUERY }],
   });
+}
+
+export interface CatalogVisitLinkCandidateRow {
+  placeId: string;
+  name: string;
+  code: string;
+  distanceM: number;
+}
+
+export interface CatalogVisitLinkRow {
+  id: string;
+  visitId: string;
+  projectId: string;
+  latitude: number;
+  longitude: number;
+  startedAt: string;
+  endedAt: string;
+  durationMs: number;
+  description: string | null;
+  visitRegion: CatalogVisitRegion | null;
+  placeId: string | null;
+  place: { id: string; name: string; code: string; regionId: string | null } | null;
+  status: CatalogVisitLinkStatus;
+  distanceM: number | null;
+  reviewReason: CatalogVisitLinkReviewReason | null;
+  candidates: CatalogVisitLinkCandidateRow[];
+  analyzedAt: string;
+}
+
+export interface CatalogVisitLinkAnalyzeResult {
+  scanned: number;
+  upserted: number;
+  auto: number;
+  review: number;
+  unlinked: number;
+  protectedManual: number;
+}
+
+const VISIT_LINKS_QUERY = gql`
+  query CatalogVisitLinks($statuses: [CatalogVisitLinkStatus!], $regionId: ID, $projectId: ID) {
+    catalogVisitLinks(statuses: $statuses, regionId: $regionId, projectId: $projectId) {
+      id
+      visitId
+      projectId
+      latitude
+      longitude
+      startedAt
+      endedAt
+      durationMs
+      description
+      visitRegion
+      placeId
+      place {
+        id
+        name
+        code
+        regionId
+      }
+      status
+      distanceM
+      reviewReason
+      candidates {
+        placeId
+        name
+        code
+        distanceM
+      }
+      analyzedAt
+    }
+  }
+`;
+
+const ANALYZE_VISIT_LINKS = gql`
+  mutation AnalyzeCatalogVisitLinks($input: CatalogVisitLinkAnalyzeInput) {
+    analyzeCatalogVisitLinks(input: $input) {
+      scanned
+      upserted
+      auto
+      review
+      unlinked
+      protectedManual
+    }
+  }
+`;
+
+const CONFIRM_VISIT_LINK = gql`
+  mutation ConfirmCatalogVisitLink($input: CatalogVisitLinkConfirmInput!) {
+    confirmCatalogVisitLink(input: $input) {
+      id
+      status
+      placeId
+    }
+  }
+`;
+
+const CLEAR_VISIT_LINK = gql`
+  mutation ClearCatalogVisitLink($id: ID!) {
+    clearCatalogVisitLink(id: $id) {
+      id
+      status
+      placeId
+    }
+  }
+`;
+
+export function useCatalogVisitLinks(variables: {
+  statuses?: CatalogVisitLinkStatus[];
+  regionId?: string | null;
+  projectId?: string | null;
+}) {
+  return useQuery<{ catalogVisitLinks: CatalogVisitLinkRow[] }>(VISIT_LINKS_QUERY, {
+    variables,
+    skip: !variables.regionId,
+  });
+}
+
+export function useAnalyzeCatalogVisitLinks() {
+  return useMutation<{ analyzeCatalogVisitLinks: CatalogVisitLinkAnalyzeResult }>(ANALYZE_VISIT_LINKS);
+}
+
+export function useConfirmCatalogVisitLink() {
+  return useMutation(CONFIRM_VISIT_LINK);
+}
+
+export function useClearCatalogVisitLink() {
+  return useMutation(CLEAR_VISIT_LINK);
 }

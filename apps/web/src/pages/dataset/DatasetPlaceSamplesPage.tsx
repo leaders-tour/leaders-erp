@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   useCatalogPlaces,
+  useCatalogRegions,
   useCreateCatalogPlace,
   useUpdateCatalogPlace,
   type CatalogPlaceRow,
@@ -147,11 +148,13 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
   const projectsQuery = useLeaderstepsActiveProjects(undefined, { all: true });
   const regionQuery = useGuideProjectVisitRegions();
   const placesQuery = useCatalogPlaces();
+  const regionsQuery = useCatalogRegions();
   const samplesQuery = useGuidePlaceVisitSamples();
   const [createPlace] = useCreateCatalogPlace();
   const [updatePlace] = useUpdateCatalogPlace();
 
   const places = placesQuery.data?.catalogPlaces ?? EMPTY_PLACES;
+  const catalogRegions = regionsQuery.data?.catalogRegions;
   const projects = projectsQuery.projects;
   const areaPlaces = useMemo(() => places.filter((place) => place.placeType === 'AREA'), [places]);
   const regionByProjectId = useMemo(() => {
@@ -216,6 +219,7 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
         visitRadiusM: place.visitRadiusM,
         internalNote: place.internalNote,
       })),
+      catalogRegions ?? [],
     ).map((cluster) => ({
       ...cluster,
       enabled: cluster.kind === 'new_place',
@@ -225,7 +229,15 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
     setGeocodedIds(new Set());
     setApplySummary(null);
     setApplyError(null);
-  }, [filteredSamples, placesQuery.data, regionFilterKey, sampleKey, samplesQuery.called, samplesQuery.loading]);
+  }, [
+    catalogRegions,
+    filteredSamples,
+    placesQuery.data,
+    regionFilterKey,
+    sampleKey,
+    samplesQuery.called,
+    samplesQuery.loading,
+  ]);
 
   useEffect(() => {
     if (typeof google === 'undefined') return;

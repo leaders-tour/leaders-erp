@@ -1,3 +1,5 @@
+import { findVisitPlaceCandidates, VISIT_PLACE_BASE_M } from '@tour/domain';
+import { resolveCatalogRegionId, type CatalogRegionNameSource } from './catalog-region-match';
 import { looksLikeAdminName } from './google-place-name';
 import type { CatalogPlaceType, CatalogVisitJudgmentType } from './labels';
 import {
@@ -11,7 +13,7 @@ export const CLUSTER_LINK_M = 120;
 export const CLUSTER_ATTACH_MAX_M = 250;
 export const CLUSTER_MERGE_MAX_SPREAD_M = 400;
 export const CLUSTER_MAX_SPREAD_M = 600;
-export const EXISTING_PLACE_BASE_M = 150;
+export const EXISTING_PLACE_BASE_M = VISIT_PLACE_BASE_M;
 export const SUGGESTED_RADIUS_MIN_M = 30;
 export const SUGGESTED_RADIUS_MAX_M = 300;
 export const LODGING_DURATION_MS = 10 * 60 * 60_000;
@@ -142,35 +144,33 @@ export function findNearbyExistingPlaces(
   longitude: number,
   places: ClusterPlaceSource[],
 ): SampleClusterNearbyPlace[] {
-  const nearby: SampleClusterNearbyPlace[] = [];
-  for (const place of places) {
-    if (place.placeType === 'AREA' || place.latitude == null || place.longitude == null) continue;
-    const placeLatitude = place.latitude;
-    const placeLongitude = place.longitude;
-    const distanceM = haversineMeters({ latitude, longitude }, { latitude: placeLatitude, longitude: placeLongitude });
-    const limit = Math.max(EXISTING_PLACE_BASE_M, place.visitRadiusM ?? 0);
-    if (distanceM > limit) continue;
-    nearby.push({
-      id: place.id,
-      name: place.name,
-      code: place.code ?? '',
-      distanceM: Math.round(distanceM),
-      latitude: placeLatitude,
-      longitude: placeLongitude,
-      visitRadiusM: place.visitRadiusM ?? null,
-      internalNote: place.internalNote ?? null,
-    });
-  }
-  return nearby.sort((left, right) => left.distanceM - right.distanceM);
+  const byId = new Map(places.map((place) => [place.id, place]));
+  return findVisitPlaceCandidates({ latitude, longitude }, places).flatMap((candidate) => {
+    const place = byId.get(candidate.id);
+    if (!place || place.latitude == null || place.longitude == null) return [];
+    return [
+      {
+        id: candidate.id,
+        name: candidate.name,
+        code: candidate.code,
+        distanceM: candidate.distanceM,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        visitRadiusM: candidate.visitRadiusM,
+        internalNote: place.internalNote ?? null,
+      },
+    ];
+  });
 }
 
 export function clusterVisitSamples(
   samples: VisitSampleSource[],
   places: ClusterPlaceSource[],
+  regions: readonly CatalogRegionNameSource[] = [],
 ): SampleCluster[] {
   const groups = mergeOverlappingGroups(groupNearbyVisits(samples));
   return groups
-    .map((group) => buildCluster(group, places))
+    .map((group) => buildCluster(group, places, regions))
     .sort((left, right) => {
       if (right.projectCount !== left.projectCount) return right.projectCount - left.projectCount;
       return right.visitCount - left.visitCount;
@@ -299,7 +299,11 @@ function cellKey(latitude: number, longitude: number, cellSizeM: number): string
   return `${latCell}:${lngCell}`;
 }
 
-function buildCluster(samples: VisitSampleSource[], places: ClusterPlaceSource[]): SampleCluster {
+function buildCluster(
+  samples: VisitSampleSource[],
+  places: ClusterPlaceSource[],
+  regions: readonly CatalogRegionNameSource[],
+): SampleCluster {
   const { latitude, longitude, visitRadiusM } = groupFootprint(samples);
   const durationMedianMs = medianNumber(samples.map((sample) => sample.durationMs));
   const visitJudgmentType: CatalogVisitJudgmentType =
@@ -346,7 +350,12 @@ function buildCluster(samples: VisitSampleSource[], places: ClusterPlaceSource[]
     visitMinStayMinutes,
     parentPlaceId: area?.place.id ?? null,
     parentDistanceM: area ? Math.round(area.distanceM) : null,
-    regionId: area?.place.regionId ?? null,
+    regionId: resolveCatalogRegionId({
+      latitude,
+      longitude,
+      parentRegionId: area?.place.regionId,
+      regions,
+    }),
     country: area?.place.country || null,
     visitCount: samples.length,
     projectCount: projectIds.size,

@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import type {
   CatalogBlockCreateInput,
   CatalogBlockPlacementInput,
@@ -21,6 +21,33 @@ import type {
 type PrismaLike = PrismaClient;
 type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
 type CatalogPlaceType = 'LODGING' | 'RESTAURANT' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+type CatalogVisitLinkStatus = 'AUTO' | 'REVIEW' | 'UNLINKED' | 'MANUAL';
+type CatalogVisitLinkReviewReason = 'OVERLAP' | 'NONE';
+
+export interface CatalogVisitLinkCandidateRecord {
+  placeId: string;
+  name: string;
+  code: string;
+  distanceM: number;
+}
+
+export interface CatalogVisitLinkWriteData {
+  visitId: string;
+  projectId: string;
+  latitude: number;
+  longitude: number;
+  startedAt: Date;
+  endedAt: Date;
+  durationMs: number;
+  description: string | null;
+  visitRegion: string | null;
+  placeId: string | null;
+  status: CatalogVisitLinkStatus;
+  distanceM: number | null;
+  reviewReason: CatalogVisitLinkReviewReason | null;
+  candidates: CatalogVisitLinkCandidateRecord[];
+  analyzedAt: Date;
+}
 
 function canLinkAccommodation(placeType: CatalogPlaceType): boolean {
   return placeType === 'LODGING' || placeType === 'RESTAURANT';
@@ -34,6 +61,10 @@ const placeInclude = {
   region: true,
   parentPlace: true,
   accommodation: { select: { id: true, name: true, region: true, destination: true } },
+} as const;
+
+const visitLinkInclude = {
+  place: { include: placeInclude },
 } as const;
 
 const elementInclude = {
@@ -516,6 +547,95 @@ export class CatalogRepository {
   writeLog(entry: { targetType: string; targetId: string; action: string; summary: string }) {
     return this.prisma.catalogChangeLog.create({
       data: { actorLabel: 'staff', ...entry },
+    });
+  }
+
+  listVisitLinks(filter: {
+    statuses?: CatalogVisitLinkStatus[];
+    regionId?: string | null;
+    projectId?: string | null;
+    visitRegion?: string | null;
+  }) {
+    const statusFilter = filter.statuses && filter.statuses.length > 0 ? { status: { in: filter.statuses } } : {};
+    const regionFilter =
+      filter.regionId || filter.visitRegion
+        ? {
+            OR: [
+              ...(filter.visitRegion ? [{ visitRegion: filter.visitRegion }] : []),
+              ...(filter.regionId ? [{ place: { regionId: filter.regionId } }] : []),
+            ],
+          }
+        : {};
+    return this.prisma.catalogVisitLink.findMany({
+      where: {
+        ...statusFilter,
+        ...regionFilter,
+        ...(filter.projectId ? { projectId: filter.projectId } : {}),
+      },
+      include: visitLinkInclude,
+      orderBy: [{ startedAt: 'asc' }],
+    });
+  }
+
+  getVisitLink(id: string) {
+    return this.prisma.catalogVisitLink.findUnique({
+      where: { id },
+      include: visitLinkInclude,
+    });
+  }
+
+  async listVisitLinksByVisitIds(visitIds: string[]) {
+    if (visitIds.length === 0) return [];
+    const rows: Array<{ visitId: string; status: CatalogVisitLinkStatus }> = [];
+    for (let index = 0; index < visitIds.length; index += 500) {
+      const chunk = visitIds.slice(index, index + 500);
+      const found = await this.prisma.catalogVisitLink.findMany({
+        where: { visitId: { in: chunk } },
+        select: { visitId: true, status: true },
+      });
+      rows.push(...found);
+    }
+    return rows;
+  }
+
+  upsertVisitLink(data: CatalogVisitLinkWriteData) {
+    const payload = {
+      projectId: data.projectId,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      startedAt: data.startedAt,
+      endedAt: data.endedAt,
+      durationMs: data.durationMs,
+      description: data.description,
+      visitRegion: data.visitRegion,
+      placeId: data.placeId,
+      status: data.status,
+      distanceM: data.distanceM,
+      reviewReason: data.reviewReason,
+      candidates: data.candidates as unknown as Prisma.InputJsonValue,
+      analyzedAt: data.analyzedAt,
+    };
+    return this.prisma.catalogVisitLink.upsert({
+      where: { visitId: data.visitId },
+      create: { visitId: data.visitId, ...payload },
+      update: payload,
+      include: visitLinkInclude,
+    });
+  }
+
+  updateVisitLink(
+    id: string,
+    data: {
+      placeId: string | null;
+      status: CatalogVisitLinkStatus;
+      distanceM: number | null;
+      reviewReason: CatalogVisitLinkReviewReason | null;
+    },
+  ) {
+    return this.prisma.catalogVisitLink.update({
+      where: { id },
+      data,
+      include: visitLinkInclude,
     });
   }
 }

@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAccommodations } from '../../features/accommodation/hooks';
 import {
   useCatalogPlaces,
+  useCatalogRegions,
   useCatalogRoutes,
   useCreateCatalogPlace,
   useCreateCatalogRoute,
@@ -104,6 +105,7 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
 
   const projectsQuery = useLeaderstepsActiveProjects(undefined, { all: true });
   const placesQuery = useCatalogPlaces();
+  const regionsQuery = useCatalogRegions();
   const routesQuery = useCatalogRoutes();
   const { accommodations } = useAccommodations({});
   const visitsQuery = useGuidePlaceVisits({ projectId: projectId || undefined });
@@ -162,8 +164,9 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
 
   const selectedProject = projects.find((project) => project.id === projectId) ?? null;
   const visitKey = visits.map((visit) => visit.id).join('|');
-  const catalogRef = useRef({ visits, places });
-  catalogRef.current = { visits, places };
+  const catalogRegions = regionsQuery.data?.catalogRegions;
+  const catalogRef = useRef({ visits, places, catalogRegions: catalogRegions ?? [] });
+  catalogRef.current = { visits, places, catalogRegions: catalogRegions ?? [] };
 
   const areaPlaces = useMemo(
     () => places.filter((place) => place.placeType === 'AREA'),
@@ -186,14 +189,14 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
 
   useEffect(() => {
     if (!projectId || visitsQuery.loading || placesQuery.loading) return;
-    const { visits: currentVisits, places: currentPlaces } = catalogRef.current;
+    const { visits: currentVisits, places: currentPlaces, catalogRegions: currentRegions } = catalogRef.current;
     const nextRows = [...currentVisits]
       .sort((left, right) => left.startedAt.localeCompare(right.startedAt))
-      .map((visit) => toImportRow(suggestImportRow(visit, currentPlaces)));
+      .map((visit) => toImportRow(suggestImportRow(visit, currentPlaces, currentRegions)));
     setRows(nextRows);
     setSelectedVisitId((current) => current ?? nextRows[0]?.visitId ?? null);
     setGeocodedIds(new Set());
-  }, [placesQuery.loading, projectId, visitKey, visitsQuery.loading]);
+  }, [catalogRegions, placesQuery.loading, projectId, visitKey, visitsQuery.loading]);
 
   useEffect(() => {
     if (typeof google === 'undefined') return;

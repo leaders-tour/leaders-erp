@@ -48,6 +48,13 @@ export const VISIT_REGION_FILTER_LABEL: Record<VisitRegionFilter, string> = {
   OTHER: '그외',
 };
 
+export function visitRegionFromCatalogName(name: string): VisitRegion | null {
+  const entry = (Object.entries(VISIT_REGION_LABEL) as Array<[VisitRegion, string]>).find(
+    ([, label]) => label === name,
+  );
+  return entry?.[0] ?? null;
+}
+
 function inRange(value: number, min: number, max: number, maxExclusive?: boolean): boolean {
   if (value < min) return false;
   return maxExclusive ? value < max : value <= max;

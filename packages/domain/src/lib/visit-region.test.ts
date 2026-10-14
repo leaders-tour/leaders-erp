@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyVisitRegion, visitMatchesSelectedRegions } from './visit-region';
+import { classifyVisitRegion, visitMatchesSelectedRegions, visitRegionFromCatalogName } from './visit-region';
 
 describe('classifyVisitRegion', () => {
   it('classifies representative places', () => {
@@ -21,6 +21,15 @@ describe('classifyVisitRegion', () => {
     expect(classifyVisitRegion(47.9, 107.249)).toBe('ULAANBAATAR');
     expect(classifyVisitRegion(49.0, 100.0)).toBe('KHUVSGUL');
     expect(classifyVisitRegion(48.999, 100.0)).toBe('CENTRAL');
+  });
+});
+
+describe('visitRegionFromCatalogName', () => {
+  it('maps catalog Korean names to GPS visit regions', () => {
+    expect(visitRegionFromCatalogName('중부')).toBe('CENTRAL');
+    expect(visitRegionFromCatalogName('고비')).toBe('GOBI');
+    expect(visitRegionFromCatalogName('홉스골')).toBe('KHUVSGUL');
+    expect(visitRegionFromCatalogName('없는 지역')).toBeNull();
   });
 });
 

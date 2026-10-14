@@ -269,6 +269,9 @@ export function DatasetPlacesPage(): JSX.Element {
               <DatasetButton type="button" variant="outline" onClick={() => navigate('/dataset/places/from-samples')}>
                 표본으로 장소 만들기
               </DatasetButton>
+              <DatasetButton type="button" variant="outline" onClick={() => navigate('/dataset/places/visit-links')}>
+                방문 연결
+              </DatasetButton>
               <DatasetButton type="button" variant="outline" onClick={() => navigate('/dataset/places/from-project')}>
                 대량 관리
               </DatasetButton>

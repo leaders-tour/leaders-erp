@@ -1,3 +1,4 @@
+import { resolveCatalogRegionId, type CatalogRegionNameSource } from './catalog-region-match';
 import { looksLikeAdminName } from './google-place-name';
 import type { CatalogPlaceType, CatalogVisitJudgmentType } from './labels';
 import { visitToPlaceDraft, type PlaceVisitDraftSource } from './place-visit-draft';
@@ -175,6 +176,7 @@ export function findNearbyLodgingAccommodation(
 export function suggestImportRow(
   visit: ProjectVisitImportVisit,
   places: CatalogPlaceMatchSource[],
+  regions: readonly CatalogRegionNameSource[] = [],
 ): ProjectVisitImportSuggestion {
   const draft = visitToBulkPlaceDraft(visit);
   const reuse = findNearbyPlace(draft.latitude, draft.longitude, places, draft.visitRadiusM);
@@ -196,7 +198,12 @@ export function suggestImportRow(
     placeType: draft.placeType,
     parentPlaceId: area?.place.id ?? null,
     parentDistanceM: area ? Math.round(area.distanceM) : null,
-    regionId: area?.place.regionId ?? null,
+    regionId: resolveCatalogRegionId({
+      latitude: draft.latitude,
+      longitude: draft.longitude,
+      parentRegionId: area?.place.regionId,
+      regions,
+    }),
     country: area?.place.country || null,
     accommodationId: lodging?.place.accommodationId ?? null,
     accommodationDistanceM: lodging ? Math.round(lodging.distanceM) : null,

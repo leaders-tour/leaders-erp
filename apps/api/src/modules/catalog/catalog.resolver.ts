@@ -25,6 +25,14 @@ interface ChangeLogArgs {
   targetId?: string;
 }
 
+type CatalogVisitLinkStatus = 'AUTO' | 'REVIEW' | 'UNLINKED' | 'MANUAL';
+
+interface VisitLinkListArgs {
+  statuses?: CatalogVisitLinkStatus[];
+  regionId?: string | null;
+  projectId?: string | null;
+}
+
 export const catalogResolver = {
   Query: {
     catalogRegions: (_parent: unknown, args: StatusArgs, ctx: AppContext) =>
@@ -43,6 +51,8 @@ export const catalogResolver = {
       new CatalogService(ctx.prisma).elementUsages(args.elementId),
     catalogChangeLogs: (_parent: unknown, args: ChangeLogArgs, ctx: AppContext) =>
       new CatalogService(ctx.prisma).listChangeLogs(args.targetType, args.targetId),
+    catalogVisitLinks: (_parent: unknown, args: VisitLinkListArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).listVisitLinks(args),
   },
   Mutation: {
     createCatalogRegion: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
@@ -85,6 +95,12 @@ export const catalogResolver = {
       new CatalogService(ctx.prisma).removeJourneyPlacement(args.id),
     batchUpdateCatalogPlaces: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
       new CatalogService(ctx.prisma).batchUpdatePlaces(args.input),
+    analyzeCatalogVisitLinks: (_parent: unknown, args: { input?: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).analyzeVisitLinks(args.input ?? {}),
+    confirmCatalogVisitLink: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).confirmVisitLink(args.input),
+    clearCatalogVisitLink: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).clearVisitLink(args.id),
   },
   CatalogElement: {
     setItems: (parent: { setItems?: unknown[] }) => parent.setItems ?? [],
@@ -100,4 +116,24 @@ export const catalogResolver = {
   CatalogPlace: {
     accommodation: (parent: { accommodation?: unknown }) => parent.accommodation ?? null,
   },
+  CatalogVisitLink: {
+    candidates: (parent: { candidates?: unknown }) => parseVisitLinkCandidates(parent.candidates),
+  },
 };
+
+function parseVisitLinkCandidates(value: unknown): Array<{ placeId: string; name: string; code: string; distanceM: number }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const row = item as { placeId?: unknown; name?: unknown; code?: unknown; distanceM?: unknown };
+    if (typeof row.placeId !== 'string' || typeof row.name !== 'string') return [];
+    return [
+      {
+        placeId: row.placeId,
+        name: row.name,
+        code: typeof row.code === 'string' ? row.code : '',
+        distanceM: typeof row.distanceM === 'number' ? row.distanceM : 0,
+      },
+    ];
+  });
+}

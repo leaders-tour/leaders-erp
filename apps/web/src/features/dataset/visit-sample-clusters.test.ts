@@ -242,6 +242,24 @@ describe('clusterVisitSamples', () => {
     expect(clusters[0]?.parentDistanceM).toBeLessThan(3000);
   });
 
+  it('assigns 중부 from GPS when no parent area has a region', () => {
+    const clusters = clusterVisitSamples(
+      [
+        sample({
+          id: 'v1',
+          projectId: 'p1',
+          centerLatitude: 47.7588,
+          centerLongitude: 102.8129,
+        }),
+      ],
+      [],
+      [{ id: 'crg_central', name: '중부', status: 'ACTIVE' }],
+    );
+
+    expect(clusters[0]?.parentPlaceId).toBeNull();
+    expect(clusters[0]?.regionId).toBe('crg_central');
+  });
+
   it('uses lodging when most samples stay overnight', () => {
     const clusters = clusterVisitSamples(
       [

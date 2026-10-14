@@ -224,4 +224,7 @@ export const resolvers = {
   PlanTemplateStop: mergeSection(planTemplateResolver.PlanTemplateStop ?? {}),
   CatalogElement: catalogResolver.CatalogElement,
   CatalogBlock: catalogResolver.CatalogBlock,
+  CatalogJourney: catalogResolver.CatalogJourney,
+  CatalogPlace: catalogResolver.CatalogPlace,
+  CatalogVisitLink: catalogResolver.CatalogVisitLink,
 };

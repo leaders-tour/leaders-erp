@@ -6,6 +6,9 @@ export type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
 export type CatalogElementComposition = 'SINGLE' | 'SET';
 export type CatalogElementKind = 'MEETING' | 'TRANSFER' | 'MEAL' | 'EXPERIENCE' | 'MIXED';
 export type CatalogBlockShape = 'DAY' | 'SET';
+export type CatalogVisitLinkStatus = 'AUTO' | 'REVIEW' | 'UNLINKED' | 'MANUAL';
+export type CatalogVisitLinkReviewReason = 'OVERLAP' | 'NONE';
+export type CatalogVisitRegion = 'GOBI' | 'CENTRAL' | 'KHUVSGUL' | 'TERELJ' | 'ULAANBAATAR' | 'OTHER';
 
 export const PLACE_TYPE_LABEL: Record<CatalogPlaceType, string> = {
   LODGING: '숙소',
@@ -42,6 +45,13 @@ export const STATUS_LABEL: Record<CatalogUsageStatus, string> = {
 export const VISIT_JUDGMENT_TYPE_LABEL: Record<CatalogVisitJudgmentType, string> = {
   PASS: '통과형',
   STAY: '체류형',
+};
+
+export const VISIT_LINK_STATUS_LABEL: Record<CatalogVisitLinkStatus, string> = {
+  AUTO: '자동 연결',
+  REVIEW: '검토 필요',
+  UNLINKED: '미연결',
+  MANUAL: '수동 연결',
 };
 
 export function defaultVisitJudgmentType(placeType: CatalogPlaceType): CatalogVisitJudgmentType {
