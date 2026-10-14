@@ -1,0 +1,9 @@
+mutation AnalyzeCatalogRouteObservations($input: CatalogRouteObservationAnalyzeInput) {
+  analyzeCatalogRouteObservations(input: $input) {
+    scanned
+    upserted
+    routeCreated
+    held
+    protectedHold
+  }
+}

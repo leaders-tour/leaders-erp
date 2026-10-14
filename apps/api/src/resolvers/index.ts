@@ -227,4 +227,6 @@ export const resolvers = {
   CatalogJourney: catalogResolver.CatalogJourney,
   CatalogPlace: catalogResolver.CatalogPlace,
   CatalogVisitLink: catalogResolver.CatalogVisitLink,
+  CatalogRoute: catalogResolver.CatalogRoute,
+  CatalogRouteObservation: catalogResolver.CatalogRouteObservation,
 };

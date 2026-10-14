@@ -3,7 +3,12 @@ import {
   classifyVisitRegion,
   haversineMeters,
   matchVisitToPlaces,
+  measureObservationPath,
+  observationElapsedMs,
+  pairConfirmedVisits,
+  shouldPreserveHeldObservation,
   shouldPreserveManualVisitLink,
+  summarizeRouteObservations,
   visitRegionFromCatalogName,
   VISIT_REGION_BOUNDS,
   type VisitMatchPlace,
@@ -27,6 +32,8 @@ import {
   catalogRegionUpdateSchema,
   catalogRouteCreateSchema,
   catalogRouteUpdateSchema,
+  catalogRouteObservationAnalyzeSchema,
+  catalogRouteObservationListSchema,
   catalogVisitLinkAnalyzeSchema,
   catalogVisitLinkConfirmSchema,
   catalogVisitLinkListSchema,
@@ -47,6 +54,8 @@ import {
   type CatalogRegionUpdateInput,
   type CatalogRouteCreateInput,
   type CatalogRouteUpdateInput,
+  type CatalogRouteObservationAnalyzeInput,
+  type CatalogRouteObservationListInput,
   type CatalogVisitLinkAnalyzeInput,
   type CatalogVisitLinkConfirmInput,
   type CatalogVisitLinkListInput,
@@ -61,6 +70,7 @@ type CatalogPlaceType = 'LODGING' | 'RESTAURANT' | 'EXPERIENCE' | 'MEETING' | 'G
 
 const PLACE_VISITS_PAGE_SIZE = 1000;
 const PLACE_VISIT_PROJECT_CHUNK = 50;
+const LOCATION_LOGS_PAGE_SIZE = 1000;
 
 interface LeaderstepsPlaceVisitRow {
   id: string;
@@ -120,8 +130,29 @@ export class CatalogService {
     return this.repository.listPlaces(status, placeType);
   }
 
-  listRoutes(status?: CatalogUsageStatus) {
-    return this.repository.listRoutes(status);
+  async listRoutes(status?: CatalogUsageStatus) {
+    const routes = await this.repository.listRoutes(status);
+    const rows = await this.repository.listObservationStatRows();
+    const byRoute = new Map<string, typeof rows>();
+    for (const row of rows) {
+      if (!row.routeId) continue;
+      const list = byRoute.get(row.routeId) ?? [];
+      list.push(row);
+      byRoute.set(row.routeId, list);
+    }
+    return routes.map((route) => ({
+      ...route,
+      ...summarizeRouteObservations(byRoute.get(route.id) ?? []),
+    }));
+  }
+
+  async listRouteObservations(input: CatalogRouteObservationListInput = {}) {
+    const data = parseOrThrow(catalogRouteObservationListSchema, input, 'catalog route observation list');
+    return this.repository.listObservations({
+      regionId: data.regionId ?? null,
+      projectId: data.projectId ?? null,
+      routeId: data.routeId ?? null,
+    });
   }
 
   listElements(status?: CatalogUsageStatus) {
@@ -468,6 +499,161 @@ export class CatalogService {
       summary: existing.visitId,
     });
     return updated;
+  }
+
+  async analyzeRouteObservations(input: CatalogRouteObservationAnalyzeInput = {}) {
+    const data = parseOrThrow(catalogRouteObservationAnalyzeSchema, input, 'catalog route observation analyze');
+    const visitRegion = data.visitRegion ?? (data.projectIds && data.projectIds.length > 0 ? undefined : 'CENTRAL');
+    const links = await this.repository.listVisitLinks({
+      statuses: ['AUTO', 'MANUAL'],
+      projectId: data.projectIds && data.projectIds.length === 1 ? data.projectIds[0] : null,
+      visitRegion: visitRegion ?? null,
+    });
+    const confirmed = links.filter((link) => link.placeId && link.place);
+    const scoped =
+      data.projectIds && data.projectIds.length > 0
+        ? confirmed.filter((link) => data.projectIds!.includes(link.projectId))
+        : confirmed;
+    const pairs = pairConfirmedVisits(
+      scoped.map((link) => ({
+        id: link.id,
+        projectId: link.projectId,
+        placeId: link.placeId as string,
+        startedAt: link.startedAt,
+        endedAt: link.endedAt,
+      })),
+    );
+    const existing = await this.repository.listObservationsByVisitLinkIds(pairs.map((pair) => pair.from.id));
+    const existingByPair = new Map(
+      existing.map((row) => [`${row.fromVisitLinkId}:${row.toVisitLinkId}`, row.status]),
+    );
+    const linkById = new Map(scoped.map((link) => [link.id, link]));
+    const logsByProject = new Map<string, Array<{ latitude: number; longitude: number; recordedAt: string }>>();
+    const pairsByProject = new Map<string, typeof pairs>();
+    for (const pair of pairs) {
+      const list = pairsByProject.get(pair.from.projectId) ?? [];
+      list.push(pair);
+      pairsByProject.set(pair.from.projectId, list);
+    }
+    for (const [projectId, projectPairs] of pairsByProject) {
+      const fromMs = Math.min(...projectPairs.map((pair) => new Date(pair.from.endedAt).getTime()));
+      const toMs = Math.max(...projectPairs.map((pair) => new Date(pair.to.startedAt).getTime()));
+      logsByProject.set(projectId, await this.fetchLeaderstepsLocationLogs(projectId, fromMs, toMs));
+    }
+
+    const analyzedAt = new Date();
+    let upserted = 0;
+    let routeCreated = 0;
+    let held = 0;
+    let protectedHold = 0;
+
+    for (const pair of pairs) {
+      const key = `${pair.from.id}:${pair.to.id}`;
+      if (shouldPreserveHeldObservation(existingByPair.get(key) ?? null)) {
+        protectedHold += 1;
+        continue;
+      }
+      const fromLink = linkById.get(pair.from.id);
+      const toLink = linkById.get(pair.to.id);
+      if (!fromLink?.place || !toLink?.place) continue;
+
+      const departedAt = new Date(fromLink.endedAt);
+      const arrivedAt = new Date(toLink.startedAt);
+      const windowLogs = (logsByProject.get(pair.from.projectId) ?? []).filter((point) => {
+        const at = new Date(point.recordedAt).getTime();
+        return at >= departedAt.getTime() && at <= arrivedAt.getTime();
+      });
+      const metrics = measureObservationPath(windowLogs);
+      const elapsedMs = observationElapsedMs(fromLink.endedAt, toLink.startedAt);
+      let routeId: string | null = null;
+      if (metrics.status === 'AUTO') {
+        const existingRoute = await this.repository.findRouteByPlaces(fromLink.place.id, toLink.place.id);
+        if (existingRoute) {
+          routeId = existingRoute.id;
+        } else {
+          const created = await this.repository.createRoute({
+            name: `${fromLink.place.name} → ${toLink.place.name}`.slice(0, 120),
+            fromPlaceId: fromLink.place.id,
+            toPlaceId: toLink.place.id,
+            regionId: fromLink.place.regionId ?? toLink.place.regionId ?? null,
+          });
+          routeId = created.id;
+          routeCreated += 1;
+        }
+      }
+
+      await this.repository.upsertObservation({
+        fromVisitLinkId: fromLink.id,
+        toVisitLinkId: toLink.id,
+        projectId: fromLink.projectId,
+        fromPlaceId: fromLink.place.id,
+        toPlaceId: toLink.place.id,
+        routeId,
+        departedAt,
+        arrivedAt,
+        elapsedMs: Math.min(elapsedMs, 2_147_483_647),
+        distanceKm: metrics.distanceKm,
+        maxGapMinutes: metrics.maxGapMinutes,
+        includeDistance: metrics.includeDistance,
+        includeElapsed: metrics.includeElapsed,
+        status: metrics.status,
+        holdReason: metrics.holdReason,
+        path: metrics.path,
+        analyzedAt,
+      });
+      upserted += 1;
+      if (metrics.status === 'HOLD') held += 1;
+    }
+
+    await this.repository.writeLog({
+      targetType: 'ROUTE_OBSERVATION',
+      targetId: 'analyze',
+      action: 'ANALYZE',
+      summary: `쌍 ${pairs.length} · 저장 ${upserted} · 경로 ${routeCreated} · 보류 ${held}`,
+    });
+
+    return {
+      scanned: pairs.length,
+      upserted,
+      routeCreated,
+      held,
+      protectedHold,
+    };
+  }
+
+  private async fetchLeaderstepsLocationLogs(projectId: string, fromMs: number, toMs: number) {
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs < fromMs) return [];
+    const supabase = getSupabaseAdminClient();
+    const points: Array<{ latitude: number; longitude: number; recordedAt: string }> = [];
+    let offset = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('location_logs')
+        .select('lat,lng,timestamp')
+        .eq('project_id', projectId)
+        .gte('timestamp', fromMs)
+        .lte('timestamp', toMs)
+        .order('timestamp', { ascending: true })
+        .range(offset, offset + LOCATION_LOGS_PAGE_SIZE - 1);
+      if (error) {
+        throw new DomainError('EXTERNAL_SERVICE_ERROR', '경로 GPS 기록을 불러오지 못했습니다.');
+      }
+      const page = data ?? [];
+      for (const row of page) {
+        const latitude = Number((row as { lat?: unknown }).lat);
+        const longitude = Number((row as { lng?: unknown }).lng);
+        const timestamp = Number((row as { timestamp?: unknown }).timestamp);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(timestamp)) continue;
+        points.push({
+          latitude,
+          longitude,
+          recordedAt: new Date(timestamp).toISOString(),
+        });
+      }
+      if (page.length < LOCATION_LOGS_PAGE_SIZE) break;
+      offset += LOCATION_LOGS_PAGE_SIZE;
+    }
+    return points;
   }
 
   private async fetchLeaderstepsPlaceVisits(projectIds: string[], visitRegion?: string) {

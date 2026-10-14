@@ -1,5 +1,4 @@
 import { CircleF, GoogleMap, MarkerF, PolylineF } from '@react-google-maps/api';
-import { haversineMeters } from '@tour/domain';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogVisitLinkStatus } from '../../features/dataset/labels';
 import { GuideMapPathsLayer } from '../../features/guide/GuideMapPathsLayer';
@@ -88,8 +87,7 @@ function placeIcon(): google.maps.Icon {
   };
 }
 
-const SELECT_ZOOM = 15;
-const CONTEXT_FIT_M = 25_000;
+const SELECT_ZOOM = 16;
 
 interface DatasetVisitLinksMapProps {
   visits: VisitLinkMapRow[];
@@ -167,32 +165,9 @@ function DatasetVisitLinksMapView({
   useEffect(() => {
     const instance = mapRef.current;
     if (!instance || !selected || typeof google === 'undefined') return;
-    if (focusNonce <= 0) {
-      instance.panTo({ lat: selected.latitude, lng: selected.longitude });
-      return;
-    }
-    const origin = { latitude: selected.latitude, longitude: selected.longitude };
-    const bounds = new google.maps.LatLngBounds();
-    bounds.extend({ lat: selected.latitude, lng: selected.longitude });
-    let extra = 0;
-    for (const neighbor of [previous, next]) {
-      if (!neighbor) continue;
-      if (haversineMeters(origin, neighbor) > CONTEXT_FIT_M) continue;
-      bounds.extend({ lat: neighbor.latitude, lng: neighbor.longitude });
-      extra += 1;
-    }
-    for (const point of gpsPath) {
-      if (haversineMeters(origin, { latitude: point.lat, longitude: point.lng }) > CONTEXT_FIT_M) continue;
-      bounds.extend(point);
-      extra += 1;
-    }
-    if (extra > 0) {
-      instance.fitBounds(bounds, 48);
-      return;
-    }
     instance.panTo({ lat: selected.latitude, lng: selected.longitude });
-    instance.setZoom(SELECT_ZOOM);
-  }, [focusNonce, gpsPath, next, previous, selected, selectedId]);
+    if (focusNonce > 0) instance.setZoom(SELECT_ZOOM);
+  }, [focusNonce, selected, selectedId]);
 
   if (!GOOGLE_MAPS_API_KEY) {
     return (

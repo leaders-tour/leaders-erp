@@ -2318,6 +2318,17 @@ enum CatalogVisitLinkReviewReason {
   NONE
 }
 
+enum CatalogRouteObservationStatus {
+  AUTO
+  HOLD
+}
+
+enum CatalogRouteObservationHoldReason {
+  GAP
+  JUMP
+  NO_PATH
+}
+
 model CatalogRegion {
   id          String             @id @default(uuid(7))
   code        String             @unique
@@ -2365,6 +2376,8 @@ model CatalogPlace {
   toRoutes      CatalogRoute[]  @relation("CatalogRouteTo")
   elements      CatalogElement[]
   visitLinks    CatalogVisitLink[]
+  fromObservations CatalogRouteObservation[] @relation("ObservationFromPlace")
+  toObservations   CatalogRouteObservation[] @relation("ObservationToPlace")
   accommodation Accommodation?  @relation(fields: [accommodationId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
@@ -2395,6 +2408,8 @@ model CatalogVisitLink {
   analyzedAt   DateTime
 
   place CatalogPlace? @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  fromObservations CatalogRouteObservation[] @relation("ObservationFromVisit")
+  toObservations   CatalogRouteObservation[] @relation("ObservationToVisit")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2420,11 +2435,48 @@ model CatalogRoute {
   region    CatalogRegion? @relation(fields: [regionId], references: [id], onDelete: SetNull)
   fromPlace CatalogPlace   @relation("CatalogRouteFrom", fields: [fromPlaceId], references: [id], onDelete: Cascade)
   toPlace   CatalogPlace   @relation("CatalogRouteTo", fields: [toPlaceId], references: [id], onDelete: Cascade)
+  observations CatalogRouteObservation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status, sortOrder])
+  @@index([fromPlaceId, toPlaceId])
+}
+
+model CatalogRouteObservation {
+  id               String                             @id @default(uuid(7))
+  fromVisitLinkId  String
+  toVisitLinkId    String
+  projectId        String
+  fromPlaceId      String
+  toPlaceId        String
+  routeId          String?
+  departedAt       DateTime
+  arrivedAt        DateTime
+  elapsedMs        Int
+  distanceKm       Float?
+  maxGapMinutes    Int
+  includeDistance  Boolean
+  includeElapsed   Boolean
+  status           CatalogRouteObservationStatus
+  holdReason       CatalogRouteObservationHoldReason?
+  path             Json
+  analyzedAt       DateTime
+
+  fromVisitLink CatalogVisitLink @relation("ObservationFromVisit", fields: [fromVisitLinkId], references: [id], onDelete: Cascade)
+  toVisitLink   CatalogVisitLink @relation("ObservationToVisit", fields: [toVisitLinkId], references: [id], onDelete: Cascade)
+  fromPlace     CatalogPlace     @relation("ObservationFromPlace", fields: [fromPlaceId], references: [id], onDelete: Cascade)
+  toPlace       CatalogPlace     @relation("ObservationToPlace", fields: [toPlaceId], references: [id], onDelete: Cascade)
+  route         CatalogRoute?    @relation(fields: [routeId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([fromVisitLinkId, toVisitLinkId])
+  @@index([projectId])
+  @@index([routeId])
+  @@index([status])
   @@index([fromPlaceId, toPlaceId])
 }
 

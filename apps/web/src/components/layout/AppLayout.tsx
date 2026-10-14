@@ -248,6 +248,7 @@ const baseNavItems: NavItem[] = [
       { path: '/dataset/places', label: '장소 목록' },
       { path: '/dataset/places/from-samples', label: '표본으로 장소 만들기' },
       { path: '/dataset/places/visit-links', label: '방문 연결' },
+      { path: '/dataset/places/route-observations', label: '경로 분석' },
     ],
   },
   {

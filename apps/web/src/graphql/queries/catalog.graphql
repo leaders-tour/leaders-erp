@@ -1,0 +1,70 @@
+query CatalogRoutes {
+  catalogRoutes {
+    id
+    code
+    name
+    region {
+      id
+      name
+    }
+    fromPlace {
+      id
+      name
+    }
+    toPlace {
+      id
+      name
+    }
+    averageDistanceKm
+    averageTravelHours
+    observationCount
+    usableCount
+    medianElapsedMinutes
+    minElapsedMinutes
+    maxElapsedMinutes
+    medianDistanceKm
+    status
+  }
+}
+
+query CatalogRouteObservations($regionId: ID, $projectId: ID, $routeId: ID) {
+  catalogRouteObservations(regionId: $regionId, projectId: $projectId, routeId: $routeId) {
+    id
+    fromVisitLinkId
+    toVisitLinkId
+    projectId
+    fromPlaceId
+    fromPlace {
+      id
+      name
+      code
+    }
+    toPlaceId
+    toPlace {
+      id
+      name
+      code
+    }
+    routeId
+    route {
+      id
+      code
+      name
+    }
+    departedAt
+    arrivedAt
+    elapsedMs
+    distanceKm
+    maxGapMinutes
+    includeDistance
+    includeElapsed
+    status
+    holdReason
+    path {
+      lat
+      lng
+      at
+    }
+    analyzedAt
+  }
+}

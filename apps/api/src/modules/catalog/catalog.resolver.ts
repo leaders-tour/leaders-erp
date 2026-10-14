@@ -53,6 +53,11 @@ export const catalogResolver = {
       new CatalogService(ctx.prisma).listChangeLogs(args.targetType, args.targetId),
     catalogVisitLinks: (_parent: unknown, args: VisitLinkListArgs, ctx: AppContext) =>
       new CatalogService(ctx.prisma).listVisitLinks(args),
+    catalogRouteObservations: (
+      _parent: unknown,
+      args: { regionId?: string | null; projectId?: string | null; routeId?: string | null },
+      ctx: AppContext,
+    ) => new CatalogService(ctx.prisma).listRouteObservations(args),
   },
   Mutation: {
     createCatalogRegion: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
@@ -103,6 +108,8 @@ export const catalogResolver = {
       new CatalogService(ctx.prisma).confirmVisitLink(args.input),
     clearCatalogVisitLink: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
       new CatalogService(ctx.prisma).clearVisitLink(args.id),
+    analyzeCatalogRouteObservations: (_parent: unknown, args: { input?: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).analyzeRouteObservations(args.input ?? {}),
   },
   CatalogElement: {
     setItems: (parent: { setItems?: unknown[] }) => parent.setItems ?? [],
@@ -121,7 +128,24 @@ export const catalogResolver = {
   CatalogVisitLink: {
     candidates: (parent: { candidates?: unknown }) => parseVisitLinkCandidates(parent.candidates),
   },
+  CatalogRoute: {
+    observationCount: (parent: { observationCount?: number }) => parent.observationCount ?? 0,
+    usableCount: (parent: { usableCount?: number }) => parent.usableCount ?? 0,
+  },
+  CatalogRouteObservation: {
+    path: (parent: { path?: unknown }) => parseObservationPath(parent.path),
+  },
 };
+
+function parseObservationPath(value: unknown): Array<{ lat: number; lng: number; at: string }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const row = item as { lat?: unknown; lng?: unknown; at?: unknown };
+    if (typeof row.lat !== 'number' || typeof row.lng !== 'number') return [];
+    return [{ lat: row.lat, lng: row.lng, at: typeof row.at === 'string' ? row.at : new Date().toISOString() }];
+  });
+}
 
 function parseVisitLinkCandidates(value: unknown): Array<{ placeId: string; name: string; code: string; distanceM: number }> {
   if (!Array.isArray(value)) return [];

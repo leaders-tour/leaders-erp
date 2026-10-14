@@ -47,6 +47,17 @@ enum CatalogVisitLinkReviewReason {
   NONE
 }
 
+enum CatalogRouteObservationStatus {
+  AUTO
+  HOLD
+}
+
+enum CatalogRouteObservationHoldReason {
+  GAP
+  JUMP
+  NO_PATH
+}
+
 enum CatalogVisitRegion {
   GOBI
   CENTRAL
@@ -115,10 +126,56 @@ type CatalogRoute {
   toPlace: CatalogPlace!
   averageDistanceKm: Float
   averageTravelHours: Float
+  observationCount: Int!
+  usableCount: Int!
+  medianElapsedMinutes: Float
+  minElapsedMinutes: Float
+  maxElapsedMinutes: Float
+  medianDistanceKm: Float
   status: CatalogUsageStatus!
   sortOrder: Int!
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+type CatalogRouteObservationPathPoint {
+  lat: Float!
+  lng: Float!
+  at: DateTime!
+}
+
+type CatalogRouteObservation {
+  id: ID!
+  fromVisitLinkId: ID!
+  toVisitLinkId: ID!
+  projectId: ID!
+  fromPlaceId: ID!
+  fromPlace: CatalogPlace!
+  toPlaceId: ID!
+  toPlace: CatalogPlace!
+  routeId: ID
+  route: CatalogRoute
+  departedAt: DateTime!
+  arrivedAt: DateTime!
+  elapsedMs: Int!
+  distanceKm: Float
+  maxGapMinutes: Int!
+  includeDistance: Boolean!
+  includeElapsed: Boolean!
+  status: CatalogRouteObservationStatus!
+  holdReason: CatalogRouteObservationHoldReason
+  path: [CatalogRouteObservationPathPoint!]!
+  analyzedAt: DateTime!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type CatalogRouteObservationAnalyzeResult {
+  scanned: Int!
+  upserted: Int!
+  routeCreated: Int!
+  held: Int!
+  protectedHold: Int!
 }
 
 type CatalogElementItem {
@@ -291,6 +348,17 @@ input CatalogVisitLinkConfirmInput {
   placeId: ID!
 }
 
+input CatalogRouteObservationAnalyzeInput {
+  projectIds: [ID!]
+  visitRegion: CatalogVisitRegion
+}
+
+input CatalogRouteObservationListInput {
+  regionId: ID
+  projectId: ID
+  routeId: ID
+}
+
 input CatalogRegionCreateInput {
   name: String!
   country: String
@@ -452,6 +520,11 @@ extend type Query {
   catalogElementUsages(elementId: ID!): [CatalogUsageRef!]!
   catalogChangeLogs(targetType: String, targetId: ID): [CatalogChangeLog!]!
   catalogVisitLinks(statuses: [CatalogVisitLinkStatus!], regionId: ID, projectId: ID): [CatalogVisitLink!]!
+  catalogRouteObservations(
+    regionId: ID
+    projectId: ID
+    routeId: ID
+  ): [CatalogRouteObservation!]!
 }
 
 extend type Mutation {
@@ -479,4 +552,5 @@ extend type Mutation {
   analyzeCatalogVisitLinks(input: CatalogVisitLinkAnalyzeInput): CatalogVisitLinkAnalyzeResult!
   confirmCatalogVisitLink(input: CatalogVisitLinkConfirmInput!): CatalogVisitLink!
   clearCatalogVisitLink(id: ID!): CatalogVisitLink!
+  analyzeCatalogRouteObservations(input: CatalogRouteObservationAnalyzeInput): CatalogRouteObservationAnalyzeResult!
 }

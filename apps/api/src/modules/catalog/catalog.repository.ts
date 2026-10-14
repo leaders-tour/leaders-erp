@@ -67,6 +67,35 @@ const visitLinkInclude = {
   place: { include: placeInclude },
 } as const;
 
+const observationInclude = {
+  fromPlace: true,
+  toPlace: true,
+  route: true,
+} as const;
+
+type CatalogRouteObservationStatus = 'AUTO' | 'HOLD';
+type CatalogRouteObservationHoldReason = 'GAP' | 'JUMP' | 'NO_PATH';
+
+export interface CatalogRouteObservationWriteData {
+  fromVisitLinkId: string;
+  toVisitLinkId: string;
+  projectId: string;
+  fromPlaceId: string;
+  toPlaceId: string;
+  routeId: string | null;
+  departedAt: Date;
+  arrivedAt: Date;
+  elapsedMs: number;
+  distanceKm: number | null;
+  maxGapMinutes: number;
+  includeDistance: boolean;
+  includeElapsed: boolean;
+  status: CatalogRouteObservationStatus;
+  holdReason: CatalogRouteObservationHoldReason | null;
+  path: Array<{ lat: number; lng: number; at: string }>;
+  analyzedAt: Date;
+}
+
 const elementInclude = {
   defaultPlace: true,
   setItems: {
@@ -667,6 +696,96 @@ export class CatalogRepository {
       where: { id },
       data,
       include: visitLinkInclude,
+    });
+  }
+
+  async listObservations(filter: { regionId?: string | null; projectId?: string | null; routeId?: string | null }) {
+    const where = {
+      ...(filter.projectId ? { projectId: filter.projectId } : {}),
+      ...(filter.routeId ? { routeId: filter.routeId } : {}),
+      ...(filter.regionId
+        ? {
+            OR: [{ fromPlace: { regionId: filter.regionId } }, { toPlace: { regionId: filter.regionId } }],
+          }
+        : {}),
+    };
+    const ordered = await this.prisma.catalogRouteObservation.findMany({
+      where,
+      select: { id: true },
+      orderBy: [{ departedAt: 'asc' }],
+    });
+    if (ordered.length === 0) return [];
+    const rows = await this.prisma.catalogRouteObservation.findMany({
+      where: { id: { in: ordered.map((row) => row.id) } },
+      include: observationInclude,
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    return ordered.flatMap((row) => {
+      const match = byId.get(row.id);
+      return match ? [match] : [];
+    });
+  }
+
+  listObservationStatRows() {
+    return this.prisma.catalogRouteObservation.findMany({
+      select: {
+        routeId: true,
+        status: true,
+        includeElapsed: true,
+        includeDistance: true,
+        elapsedMs: true,
+        distanceKm: true,
+      },
+    });
+  }
+
+  listObservationsByVisitLinkIds(fromVisitLinkIds: string[]) {
+    if (fromVisitLinkIds.length === 0) return Promise.resolve([]);
+    return this.prisma.catalogRouteObservation.findMany({
+      where: { fromVisitLinkId: { in: fromVisitLinkIds } },
+      select: { fromVisitLinkId: true, toVisitLinkId: true, status: true },
+    });
+  }
+
+  findRouteByPlaces(fromPlaceId: string, toPlaceId: string) {
+    return this.prisma.catalogRoute.findFirst({
+      where: { fromPlaceId, toPlaceId },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  upsertObservation(data: CatalogRouteObservationWriteData) {
+    const payload = {
+      projectId: data.projectId,
+      fromPlaceId: data.fromPlaceId,
+      toPlaceId: data.toPlaceId,
+      routeId: data.routeId,
+      departedAt: data.departedAt,
+      arrivedAt: data.arrivedAt,
+      elapsedMs: data.elapsedMs,
+      distanceKm: data.distanceKm,
+      maxGapMinutes: data.maxGapMinutes,
+      includeDistance: data.includeDistance,
+      includeElapsed: data.includeElapsed,
+      status: data.status,
+      holdReason: data.holdReason,
+      path: data.path as unknown as Prisma.InputJsonValue,
+      analyzedAt: data.analyzedAt,
+    };
+    return this.prisma.catalogRouteObservation.upsert({
+      where: {
+        fromVisitLinkId_toVisitLinkId: {
+          fromVisitLinkId: data.fromVisitLinkId,
+          toVisitLinkId: data.toVisitLinkId,
+        },
+      },
+      create: {
+        fromVisitLinkId: data.fromVisitLinkId,
+        toVisitLinkId: data.toVisitLinkId,
+        ...payload,
+      },
+      update: payload,
+      include: observationInclude,
     });
   }
 }

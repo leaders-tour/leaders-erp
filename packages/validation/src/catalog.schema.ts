@@ -172,6 +172,14 @@ export const catalogVisitLinkListSchema = z.object({
   projectId: optionalId,
 });
 
+export const catalogRouteObservationAnalyzeSchema = catalogVisitLinkAnalyzeSchema;
+
+export const catalogRouteObservationListSchema = z.object({
+  regionId: optionalId,
+  projectId: optionalId,
+  routeId: optionalId,
+});
+
 export type CatalogRegionCreateInput = z.infer<typeof catalogRegionCreateSchema>;
 export type CatalogRegionUpdateInput = z.infer<typeof catalogRegionUpdateSchema>;
 export type CatalogPlaceCreateInput = z.infer<typeof catalogPlaceCreateSchema>;
@@ -192,3 +200,5 @@ export type CatalogPlaceDeleteInput = z.infer<typeof catalogPlaceDeleteSchema>;
 export type CatalogVisitLinkAnalyzeInput = z.infer<typeof catalogVisitLinkAnalyzeSchema>;
 export type CatalogVisitLinkConfirmInput = z.infer<typeof catalogVisitLinkConfirmSchema>;
 export type CatalogVisitLinkListInput = z.infer<typeof catalogVisitLinkListSchema>;
+export type CatalogRouteObservationAnalyzeInput = z.infer<typeof catalogRouteObservationAnalyzeSchema>;
+export type CatalogRouteObservationListInput = z.infer<typeof catalogRouteObservationListSchema>;

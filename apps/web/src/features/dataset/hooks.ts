@@ -9,6 +9,8 @@ import type {
   CatalogVisitLinkReviewReason,
   CatalogVisitLinkStatus,
   CatalogVisitRegion,
+  CatalogRouteObservationHoldReason,
+  CatalogRouteObservationStatus,
 } from './labels';
 
 export interface CatalogRegionRow {
@@ -61,7 +63,51 @@ export interface CatalogRouteRow {
   toPlace: { id: string; name: string };
   averageDistanceKm: number | null;
   averageTravelHours: number | null;
+  observationCount: number;
+  usableCount: number;
+  medianElapsedMinutes: number | null;
+  minElapsedMinutes: number | null;
+  maxElapsedMinutes: number | null;
+  medianDistanceKm: number | null;
   status: CatalogUsageStatus;
+}
+
+export interface CatalogRouteObservationPathPoint {
+  lat: number;
+  lng: number;
+  at: string;
+}
+
+export interface CatalogRouteObservationRow {
+  id: string;
+  fromVisitLinkId: string;
+  toVisitLinkId: string;
+  projectId: string;
+  fromPlaceId: string;
+  fromPlace: { id: string; name: string; code: string };
+  toPlaceId: string;
+  toPlace: { id: string; name: string; code: string };
+  routeId: string | null;
+  route: { id: string; code: string; name: string } | null;
+  departedAt: string;
+  arrivedAt: string;
+  elapsedMs: number;
+  distanceKm: number | null;
+  maxGapMinutes: number;
+  includeDistance: boolean;
+  includeElapsed: boolean;
+  status: CatalogRouteObservationStatus;
+  holdReason: CatalogRouteObservationHoldReason | null;
+  path: CatalogRouteObservationPathPoint[];
+  analyzedAt: string;
+}
+
+export interface CatalogRouteObservationAnalyzeResult {
+  scanned: number;
+  upserted: number;
+  routeCreated: number;
+  held: number;
+  protectedHold: number;
 }
 
 export interface CatalogElementRow {
@@ -233,6 +279,12 @@ const ROUTES_QUERY = gql`
       }
       averageDistanceKm
       averageTravelHours
+      observationCount
+      usableCount
+      medianElapsedMinutes
+      minElapsedMinutes
+      maxElapsedMinutes
+      medianDistanceKm
       status
     }
   }
@@ -794,4 +846,77 @@ export function useConfirmCatalogVisitLink() {
 
 export function useClearCatalogVisitLink() {
   return useMutation(CLEAR_VISIT_LINK);
+}
+
+const ROUTE_OBSERVATIONS_QUERY = gql`
+  query CatalogRouteObservations($regionId: ID, $projectId: ID, $routeId: ID) {
+    catalogRouteObservations(regionId: $regionId, projectId: $projectId, routeId: $routeId) {
+      id
+      fromVisitLinkId
+      toVisitLinkId
+      projectId
+      fromPlaceId
+      fromPlace {
+        id
+        name
+        code
+      }
+      toPlaceId
+      toPlace {
+        id
+        name
+        code
+      }
+      routeId
+      route {
+        id
+        code
+        name
+      }
+      departedAt
+      arrivedAt
+      elapsedMs
+      distanceKm
+      maxGapMinutes
+      includeDistance
+      includeElapsed
+      status
+      holdReason
+      path {
+        lat
+        lng
+        at
+      }
+      analyzedAt
+    }
+  }
+`;
+
+const ANALYZE_ROUTE_OBSERVATIONS = gql`
+  mutation AnalyzeCatalogRouteObservations($input: CatalogRouteObservationAnalyzeInput) {
+    analyzeCatalogRouteObservations(input: $input) {
+      scanned
+      upserted
+      routeCreated
+      held
+      protectedHold
+    }
+  }
+`;
+
+export function useCatalogRouteObservations(variables: {
+  regionId?: string | null;
+  projectId?: string | null;
+  routeId?: string | null;
+}) {
+  return useQuery<{ catalogRouteObservations: CatalogRouteObservationRow[] }>(ROUTE_OBSERVATIONS_QUERY, {
+    variables,
+    skip: !variables.regionId && !variables.projectId && !variables.routeId,
+  });
+}
+
+export function useAnalyzeCatalogRouteObservations() {
+  return useMutation<{ analyzeCatalogRouteObservations: CatalogRouteObservationAnalyzeResult }>(
+    ANALYZE_ROUTE_OBSERVATIONS,
+  );
 }

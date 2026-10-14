@@ -9,6 +9,8 @@ export type CatalogBlockShape = 'DAY' | 'SET';
 export type CatalogVisitLinkStatus = 'AUTO' | 'REVIEW' | 'UNLINKED' | 'MANUAL';
 export type CatalogVisitLinkReviewReason = 'OVERLAP' | 'NONE';
 export type CatalogVisitRegion = 'GOBI' | 'CENTRAL' | 'KHUVSGUL' | 'TERELJ' | 'ULAANBAATAR' | 'OTHER';
+export type CatalogRouteObservationStatus = 'AUTO' | 'HOLD';
+export type CatalogRouteObservationHoldReason = 'GAP' | 'JUMP' | 'NO_PATH';
 
 export const PLACE_TYPE_LABEL: Record<CatalogPlaceType, string> = {
   LODGING: '숙소',
@@ -58,6 +60,26 @@ export const VISIT_LINK_REVIEW_REASON_LABEL: Record<CatalogVisitLinkReviewReason
   OVERLAP: '장소 범위 겹침',
   NONE: '근처 등록 장소 없음',
 };
+
+export const ROUTE_OBSERVATION_STATUS_LABEL: Record<CatalogRouteObservationStatus, string> = {
+  AUTO: '자동',
+  HOLD: '보류',
+};
+
+export const ROUTE_OBSERVATION_HOLD_REASON_LABEL: Record<CatalogRouteObservationHoldReason, string> = {
+  GAP: '공백',
+  JUMP: '점프',
+  NO_PATH: '경로 없음',
+};
+
+export function routeObservationHoldReasonLabel(
+  status: CatalogRouteObservationStatus,
+  reason: CatalogRouteObservationHoldReason | null,
+): string {
+  if (reason) return ROUTE_OBSERVATION_HOLD_REASON_LABEL[reason];
+  if (status === 'HOLD') return '보류';
+  return '—';
+}
 
 export function visitLinkReviewReasonLabel(
   status: CatalogVisitLinkStatus,
