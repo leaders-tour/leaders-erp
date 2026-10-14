@@ -20,13 +20,13 @@ export interface PlaceResultLike {
 
 const KOREAN_PLACE_ALIASES: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /kharkhorin|karakorum|хархорин/i, name: '하르허린' },
-  { pattern: /bayanzag|flaming\s*cliffs|ブルド/i, name: '바양작' },
+  { pattern: /bayanzag|flaming\s*cliffs/i, name: '바양작' },
   { pattern: /tsagaan\s*suvarga|white\s*stupa|цагаан\s*суварга/i, name: '차강 소브라가' },
   { pattern: /yolyn\s*am|yoliin\s*am|ёлын\s*ам/i, name: '욜린암' },
   { pattern: /khongoryn|khongor\s*els|singing\s*dune/i, name: '홍고린 엘스' },
   { pattern: /baga\s*gazr|baga\s*gazriin|бага\s*газрын/i, name: '바가 가즈링 촐로' },
   { pattern: /\bugii\b|\bogii\b|өгий/i, name: '우기 호수' },
-  { pattern: /elsen\s*tasarkhai|mini\s*gobi|엘센/i, name: '엘센 타사르하이' },
+  { pattern: /elsen\s*tasarkhai|mini\s*gobi|엘센\s*타사르|엘승타사르|ブルド/i, name: '엘승타사르헤' },
   { pattern: /khustain|hustai|хустайн/i, name: '후스태' },
   { pattern: /tsenkher|цэнхэр/i, name: '쳉헤르' },
   { pattern: /terkhiin|terkh\b|тэрхийн/i, name: '테르힝 차강 노르' },
@@ -57,9 +57,10 @@ export function nameLanguageScore(name: string): number {
 
 export function toKoreanPlaceName(name: string): string {
   const value = name.trim();
-  if (!value || hasHangul(value)) return value;
+  if (!value) return value;
   const alias = KOREAN_PLACE_ALIASES.find((item) => item.pattern.test(value));
-  return alias?.name ?? value;
+  if (alias) return alias.name;
+  return value;
 }
 
 const NEARBY_RADIUS_M = 2000;
@@ -250,7 +251,7 @@ const NEARBY_KIND_TYPE: Record<NearbyPlaceKind, string | null> = {
   any: null,
 };
 const PREFERRED_TYPE_SLACK_M = 100;
-const LANGUAGE_SLACK_M = 80;
+const LANGUAGE_SLACK_M = 800;
 
 function distanceM(from: { lat: number; lng: number }, to: { lat: number; lng: number }): number {
   const toRad = (value: number) => (value * Math.PI) / 180;
@@ -264,6 +265,7 @@ function distanceM(from: { lat: number; lng: number }, to: { lat: number; lng: n
 /**
  * 구글에 숙소 유형으로 등록되지 않은 캠프가 많아서, 유형 검색 결과만 쓰면 멀리 있는 다른 숙소가 먼저 잡힌다.
  * 실제 거리순으로 정렬하되, 원하는 유형은 가장 가까운 후보보다 100m 이내로만 멀면 앞에 둔다.
+ * 한글 지명은 제일 가까운 후보보다 800m 이내면 외국어 이름보다 앞에 둔다. 일본어 관광 라벨이 모래언덕을 선점하는 경우를 줄인다.
  */
 export function rankNearbyCandidates(
   origin: { lat: number; lng: number },

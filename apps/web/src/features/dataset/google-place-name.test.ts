@@ -23,16 +23,33 @@ describe('rankNearbyCandidates', () => {
   });
 
   it('prefers a nearby Korean name over a slightly closer foreign name', () => {
-    const japanese = { name: 'ブルド砂丘', address: null, lat: 44.5777, lng: 105.7202 };
+    const japanese = { name: '遊牧民ゲル', address: null, lat: 44.5777, lng: 105.7202 };
     const korean = { name: '바양작', address: null, lat: 44.5781, lng: 105.7203 };
     expect(rankNearbyCandidates(origin, [], [japanese, korean])[0]?.name).toBe('바양작');
+  });
+
+  it('prefers Elsen Tasarkhai over a closer Japanese dune label', () => {
+    const cluster = { lat: 47.33203, lng: 103.67262 };
+    const burd = {
+      name: toKoreanPlaceName('ブルド砂丘'),
+      address: null,
+      lat: 47.3338,
+      lng: 103.6734,
+    };
+    const elsen = { name: toKoreanPlaceName('엘승타사르해'), address: null, lat: 47.3365, lng: 103.676 };
+    const mini = { name: '미니사막', address: null, lat: 47.341, lng: 103.68 };
+    expect(burd.name).toBe('엘승타사르헤');
+    expect(rankNearbyCandidates(cluster, [], [burd, elsen, mini])[0]?.name).toBe('엘승타사르헤');
   });
 });
 
 describe('toKoreanPlaceName', () => {
   it('maps well-known destinations to Korean names', () => {
     expect(toKoreanPlaceName('Kharkhorin')).toBe('하르허린');
-    expect(toKoreanPlaceName('ブルド砂丘')).toBe('바양작');
+    expect(toKoreanPlaceName('Bayanzag')).toBe('바양작');
+    expect(toKoreanPlaceName('ブルド砂丘')).toBe('엘승타사르헤');
+    expect(toKoreanPlaceName('Elsen Tasarkhai')).toBe('엘승타사르헤');
+    expect(toKoreanPlaceName('엘승타사르해')).toBe('엘승타사르헤');
     expect(toKoreanPlaceName('Bichigt Khad Tourist Camp')).toBe('비칙트 하드');
     expect(toKoreanPlaceName('미니사막 A캠프')).toBe('미니사막 A캠프');
     expect(toKoreanPlaceName('Mandala Restaurant')).toBe('Mandala Restaurant');
