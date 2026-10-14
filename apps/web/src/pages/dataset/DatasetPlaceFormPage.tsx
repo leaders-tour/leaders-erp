@@ -37,9 +37,9 @@ import { DatasetPlaceFormMap } from './DatasetPlaceFormMap';
 type LocationLookupMode = 'visit' | 'google' | 'catalog';
 
 const LOCATION_LOOKUP_TABS: Array<{ id: LocationLookupMode; label: string }> = [
+  { id: 'catalog', label: '기존 장소로 검색' },
   { id: 'visit', label: '프로젝트 방문장소로 조회' },
   { id: 'google', label: '구글지도로 검색' },
-  { id: 'catalog', label: '기존 장소로 검색' },
 ];
 
 function normalizePlaceSearch(value: string): string {
@@ -229,7 +229,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const [coordSource, setCoordSource] = useState<'map' | 'input' | 'paste' | 'visit' | null>(
     visitDraft ? 'visit' : null,
   );
-  const [lookupMode, setLookupMode] = useState<LocationLookupMode>(visitDraft ? 'visit' : 'google');
+  const [lookupMode, setLookupMode] = useState<LocationLookupMode>(visitDraft ? 'visit' : 'catalog');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ label: string; name: string | null; lat: number; lng: number }>>(
     [],
@@ -492,13 +492,13 @@ export function DatasetPlaceFormPage(): JSX.Element {
   };
 
   const applyExistingCatalogPlace = (row: CatalogPlaceRow) => {
-    if (row.latitude == null || row.longitude == null) {
-      if (row.name && !name.trim()) setName(row.name);
-      return;
+    if (row.latitude == null || row.longitude == null) return;
+    if (!isArea && !blockedParentIds.has(row.id)) {
+      setParentPlaceId(row.id);
+    } else {
+      if (row.country) setCountry(row.country);
+      if (row.regionId) setRegionId(row.regionId);
     }
-    if (!name.trim()) setName(row.name);
-    if (row.country) setCountry(row.country);
-    if (row.regionId) setRegionId(row.regionId);
     applyCoords(row.latitude, row.longitude, 'map');
   };
 
