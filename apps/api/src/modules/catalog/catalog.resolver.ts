@@ -95,6 +95,8 @@ export const catalogResolver = {
       new CatalogService(ctx.prisma).removeJourneyPlacement(args.id),
     batchUpdateCatalogPlaces: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
       new CatalogService(ctx.prisma).batchUpdatePlaces(args.input),
+    deleteCatalogPlaces: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).deletePlaces(args.input),
     analyzeCatalogVisitLinks: (_parent: unknown, args: { input?: never }, ctx: AppContext) =>
       new CatalogService(ctx.prisma).analyzeVisitLinks(args.input ?? {}),
     confirmCatalogVisitLink: (_parent: unknown, args: { input: never }, ctx: AppContext) =>

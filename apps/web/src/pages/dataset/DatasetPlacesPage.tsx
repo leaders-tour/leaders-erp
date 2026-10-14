@@ -12,6 +12,7 @@ import {
 import {
   useBatchUpdateCatalogPlaces,
   useCatalogChangeLogs,
+  useDeleteCatalogPlaces,
   useCatalogPlaces,
   useCatalogRegions,
   useCatalogRoutes,
@@ -77,6 +78,7 @@ export function DatasetPlacesPage(): JSX.Element {
 
   const [batchStatus, setBatchStatus] = useState<'ACTIVE' | 'INACTIVE'>('INACTIVE');
   const [batchMessage, setBatchMessage] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const [routeNameInput, setRouteNameInput] = useState('');
   const [routeFromPlaceId, setRouteFromPlaceId] = useState('');
@@ -90,6 +92,7 @@ export function DatasetPlacesPage(): JSX.Element {
   const routesQuery = useCatalogRoutes();
   const [createRoute, createRouteState] = useCreateCatalogRoute();
   const [batchUpdatePlaces, batchState] = useBatchUpdateCatalogPlaces();
+  const [deletePlaces, deleteState] = useDeleteCatalogPlaces();
   const logsQuery = useCatalogChangeLogs('PLACE');
 
   const places = placesQuery.data?.catalogPlaces ?? [];
@@ -208,12 +211,28 @@ export function DatasetPlacesPage(): JSX.Element {
 
   const handleBatchStatus = async () => {
     if (selectedIds.size === 0) return;
+    setConfirmDelete(false);
     const result = await batchUpdatePlaces({
       variables: { input: { ids: Array.from(selectedIds), status: batchStatus } },
     });
     const rows = result.data?.batchUpdateCatalogPlaces ?? [];
     const failed = rows.filter((row: { ok: boolean }) => !row.ok).length;
     setBatchMessage(`일괄 수정 ${rows.length}건 · 실패 ${failed} · 전체 롤백 없음`);
+  };
+
+  const handleDeletePlaces = async () => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    const result = await deletePlaces({
+      variables: { input: { ids } },
+    });
+    const rows = result.data?.deleteCatalogPlaces ?? [];
+    const failed = rows.filter((row: { ok: boolean }) => !row.ok).length;
+    setBatchMessage(`삭제 ${rows.length - failed}건 · 실패 ${failed}`);
+    setSelectedIds(new Set());
+    setConfirmDelete(false);
+    if (viewPlaceId && ids.includes(viewPlaceId)) setViewPlaceId(null);
+    if (detailPlaceId && ids.includes(detailPlaceId)) setDetailPlaceId(null);
   };
 
   const handleCreateRoute = async () => {
@@ -380,7 +399,10 @@ export function DatasetPlacesPage(): JSX.Element {
           <>
             <DatasetSelectionBar
               count={selectedIds.size}
-              onClear={() => setSelectedIds(new Set())}
+              onClear={() => {
+                setSelectedIds(new Set());
+                setConfirmDelete(false);
+              }}
               actions={
                 <>
                   <select
@@ -391,13 +413,36 @@ export function DatasetPlacesPage(): JSX.Element {
                     <option value="INACTIVE">사용 안 함</option>
                     <option value="ACTIVE">사용 중</option>
                   </select>
-                  <DatasetButton type="button" variant="soft" disabled={batchState.loading} onClick={() => void handleBatchStatus()}>
+                  <DatasetButton type="button" variant="soft" disabled={batchState.loading || deleteState.loading} onClick={() => void handleBatchStatus()}>
                     일괄 상태 변경
+                  </DatasetButton>
+                  <DatasetButton
+                    type="button"
+                    variant="outline"
+                    disabled={batchState.loading || deleteState.loading}
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    선택 삭제
                   </DatasetButton>
                   <StubButton label="엑셀 일괄" variant="soft" onStub={() => showStub('엑셀 일괄은 양식 확정 후 연결합니다. (D05)')} />
                 </>
               }
             />
+            {confirmDelete ? (
+              <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl px-3 py-2.5 ${datasetTheme.selectionBar}`}>
+                <p className="text-sm text-slate-700">
+                  {selectedIds.size}개 장소를 삭제할까요? 이 장소를 쓰는 경로는 같이 지워지고, 방문 연결은 해제됩니다.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <DatasetButton type="button" variant="outline" disabled={deleteState.loading} onClick={() => setConfirmDelete(false)}>
+                    취소
+                  </DatasetButton>
+                  <DatasetButton type="button" variant="primary" disabled={deleteState.loading} onClick={() => void handleDeletePlaces()}>
+                    {deleteState.loading ? '삭제 중…' : '삭제'}
+                  </DatasetButton>
+                </div>
+              </div>
+            ) : null}
             {batchMessage ? <DatasetStubNotice message={batchMessage} /> : null}
 
             <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
@@ -685,7 +730,7 @@ export function DatasetPlacesPage(): JSX.Element {
           <DatasetCard>
             <div className="border-b border-slate-100 px-4 py-3">
               <h2 className="text-sm font-semibold">변경 이력</h2>
-              <p className="mt-1 text-xs text-[#8B83B8]">최근 장소 작업 · 영구삭제는 D06 이후</p>
+              <p className="mt-1 text-xs text-[#8B83B8]">최근 장소 작업 · 선택 삭제는 되돌릴 수 없습니다</p>
             </div>
             <ul className="grid gap-2 px-4 py-3 text-sm">
               {(logsQuery.data?.catalogChangeLogs ?? []).slice(0, 8).map((row) => (

@@ -149,6 +149,10 @@ export const catalogPlaceBatchUpdateSchema = z.object({
   regionId: optionalId,
 });
 
+export const catalogPlaceDeleteSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(200),
+});
+
 const catalogVisitLinkStatusSchema = z.enum(['AUTO', 'REVIEW', 'UNLINKED', 'MANUAL']);
 const catalogVisitRegionSchema = z.enum(['GOBI', 'CENTRAL', 'KHUVSGUL', 'TERELJ', 'ULAANBAATAR', 'OTHER']);
 
@@ -184,6 +188,7 @@ export type CatalogJourneyCreateInput = z.infer<typeof catalogJourneyCreateSchem
 export type CatalogJourneyUpdateInput = z.infer<typeof catalogJourneyUpdateSchema>;
 export type CatalogJourneyPlacementInput = z.infer<typeof catalogJourneyPlacementSchema>;
 export type CatalogPlaceBatchUpdateInput = z.infer<typeof catalogPlaceBatchUpdateSchema>;
+export type CatalogPlaceDeleteInput = z.infer<typeof catalogPlaceDeleteSchema>;
 export type CatalogVisitLinkAnalyzeInput = z.infer<typeof catalogVisitLinkAnalyzeSchema>;
 export type CatalogVisitLinkConfirmInput = z.infer<typeof catalogVisitLinkConfirmSchema>;
 export type CatalogVisitLinkListInput = z.infer<typeof catalogVisitLinkListSchema>;

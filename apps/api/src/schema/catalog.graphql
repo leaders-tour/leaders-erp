@@ -438,6 +438,10 @@ input CatalogPlaceBatchUpdateInput {
   regionId: ID
 }
 
+input CatalogPlaceDeleteInput {
+  ids: [ID!]!
+}
+
 extend type Query {
   catalogRegions(status: CatalogUsageStatus): [CatalogRegion!]!
   catalogPlaces(status: CatalogUsageStatus, placeType: CatalogPlaceType): [CatalogPlace!]!
@@ -471,6 +475,7 @@ extend type Mutation {
   addCatalogJourneyPlacement(input: CatalogJourneyPlacementInput!): CatalogJourney!
   removeCatalogJourneyPlacement(id: ID!): CatalogJourney!
   batchUpdateCatalogPlaces(input: CatalogPlaceBatchUpdateInput!): [CatalogBatchResult!]!
+  deleteCatalogPlaces(input: CatalogPlaceDeleteInput!): [CatalogBatchResult!]!
   analyzeCatalogVisitLinks(input: CatalogVisitLinkAnalyzeInput): CatalogVisitLinkAnalyzeResult!
   confirmCatalogVisitLink(input: CatalogVisitLinkConfirmInput!): CatalogVisitLink!
   clearCatalogVisitLink(id: ID!): CatalogVisitLink!

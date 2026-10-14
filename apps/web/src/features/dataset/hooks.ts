@@ -539,6 +539,16 @@ const BATCH_PLACES = gql`
   }
 `;
 
+const DELETE_PLACES = gql`
+  mutation DeleteCatalogPlaces($input: CatalogPlaceDeleteInput!) {
+    deleteCatalogPlaces(input: $input) {
+      id
+      ok
+      message
+    }
+  }
+`;
+
 export function useCatalogRegions() {
   return useQuery<{ catalogRegions: CatalogRegionRow[] }>(REGIONS_QUERY);
 }
@@ -651,6 +661,12 @@ export function useRemoveCatalogJourneyPlacement() {
 export function useBatchUpdateCatalogPlaces() {
   return useMutation(BATCH_PLACES, {
     refetchQueries: [{ query: PLACES_QUERY }, { query: LOGS_QUERY }],
+  });
+}
+
+export function useDeleteCatalogPlaces() {
+  return useMutation(DELETE_PLACES, {
+    refetchQueries: [{ query: PLACES_QUERY }, { query: ROUTES_QUERY }, { query: LOGS_QUERY }],
   });
 }
 

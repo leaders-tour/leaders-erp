@@ -544,6 +544,37 @@ export class CatalogRepository {
     return results;
   }
 
+  async deletePlaces(ids: string[]) {
+    const results: Array<{ id: string | null; ok: boolean; message: string }> = [];
+    const uniqueIds = [...new Set(ids)];
+    const rows = await this.prisma.catalogPlace.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, name: true, parentPlaceId: true },
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const selected = new Set(uniqueIds);
+    const ordered = [...uniqueIds].sort((left, right) => {
+      const leftIsParent = rows.some((row) => row.parentPlaceId === left && selected.has(row.id));
+      const rightIsParent = rows.some((row) => row.parentPlaceId === right && selected.has(row.id));
+      if (leftIsParent === rightIsParent) return 0;
+      return leftIsParent ? 1 : -1;
+    });
+    for (const id of ordered) {
+      const existing = byId.get(id);
+      if (!existing) {
+        results.push({ id, ok: false, message: '장소를 찾을 수 없습니다.' });
+        continue;
+      }
+      try {
+        await this.prisma.catalogPlace.delete({ where: { id } });
+        results.push({ id, ok: true, message: existing.name });
+      } catch (error) {
+        results.push({ id, ok: false, message: error instanceof Error ? error.message : '실패' });
+      }
+    }
+    return results;
+  }
+
   writeLog(entry: { targetType: string; targetId: string; action: string; summary: string }) {
     return this.prisma.catalogChangeLog.create({
       data: { actorLabel: 'staff', ...entry },

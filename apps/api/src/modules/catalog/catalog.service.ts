@@ -21,6 +21,7 @@ import {
   catalogJourneyUpdateSchema,
   catalogPlaceBatchUpdateSchema,
   catalogPlaceCreateSchema,
+  catalogPlaceDeleteSchema,
   catalogPlaceUpdateSchema,
   catalogRegionCreateSchema,
   catalogRegionUpdateSchema,
@@ -40,6 +41,7 @@ import {
   type CatalogJourneyUpdateInput,
   type CatalogPlaceBatchUpdateInput,
   type CatalogPlaceCreateInput,
+  type CatalogPlaceDeleteInput,
   type CatalogPlaceUpdateInput,
   type CatalogRegionCreateInput,
   type CatalogRegionUpdateInput,
@@ -299,6 +301,19 @@ export class CatalogService {
       targetId: data.ids[0] ?? 'batch',
       action: 'BATCH_UPDATE',
       summary: `${data.ids.length}건`,
+    });
+    return results;
+  }
+
+  async deletePlaces(input: CatalogPlaceDeleteInput) {
+    const data = parseOrThrow(catalogPlaceDeleteSchema, input, 'catalog place delete');
+    const results = await this.repository.deletePlaces(data.ids);
+    const deleted = results.filter((row) => row.ok).length;
+    await this.repository.writeLog({
+      targetType: 'PLACE',
+      targetId: data.ids[0] ?? 'batch',
+      action: 'DELETE',
+      summary: `${deleted}/${data.ids.length}건`,
     });
     return results;
   }
