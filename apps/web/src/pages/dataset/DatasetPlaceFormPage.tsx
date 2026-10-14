@@ -31,8 +31,43 @@ import {
   type CatalogVisitJudgmentType,
 } from '../../features/dataset/labels';
 import { datasetTheme } from '../../features/dataset/theme';
-import { DatasetButton, DatasetCard, DatasetField, DatasetPageShell, datasetControlClass } from '../../features/dataset/ui';
+import { DatasetButton, DatasetCard, DatasetField, DatasetPageShell, DatasetTabs, datasetControlClass } from '../../features/dataset/ui';
 import { DatasetPlaceFormMap } from './DatasetPlaceFormMap';
+
+type LocationLookupMode = 'visit' | 'google' | 'catalog';
+
+const LOCATION_LOOKUP_TABS: Array<{ id: LocationLookupMode; label: string }> = [
+  { id: 'visit', label: '프로젝트 방문장소로 조회' },
+  { id: 'google', label: '구글지도로 검색' },
+  { id: 'catalog', label: '기존 장소로 검색' },
+];
+
+function normalizePlaceSearch(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+function catalogPlaceSearchHaystack(row: CatalogPlaceRow): string {
+  return [row.name, row.displayName, row.code, row.region?.name, row.parentPlace?.name, row.country]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function searchCatalogPlaces(places: CatalogPlaceRow[], query: string, excludeId?: string): CatalogPlaceRow[] {
+  const rows = excludeId ? places.filter((row) => row.id !== excludeId) : places;
+  const needle = normalizePlaceSearch(query);
+  if (!needle) return rows;
+  return rows.filter((row) => normalizePlaceSearch(catalogPlaceSearchHaystack(row)).includes(needle));
+}
+
+function distanceM(from: { lat: number; lng: number }, to: { lat: number; lng: number }): number {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const dLat = toRad(to.lat - from.lat);
+  const dLng = toRad(to.lng - from.lng);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLng / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
 const DEFAULT_VISIT_RADIUS_M = 50;
@@ -161,7 +196,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const [createPlace, createState] = useCreateCatalogPlace();
   const [updatePlace, updateState] = useUpdateCatalogPlace();
   const { accommodations } = useAccommodations({});
-  const { authUsers } = useLeaderstepsAuthUsers({ skip: isEdit });
+  const { authUsers } = useLeaderstepsAuthUsers();
 
   const places = placesQuery.data?.catalogPlaces ?? [];
   const regions = regionsQuery.data?.catalogRegions ?? [];
@@ -194,6 +229,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const [coordSource, setCoordSource] = useState<'map' | 'input' | 'paste' | 'visit' | null>(
     visitDraft ? 'visit' : null,
   );
+  const [lookupMode, setLookupMode] = useState<LocationLookupMode>(visitDraft ? 'visit' : 'google');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ label: string; name: string | null; lat: number; lng: number }>>(
     [],
@@ -246,8 +282,8 @@ export function DatasetPlaceFormPage(): JSX.Element {
     }
     return sorted;
   }, [authUsers, visitGuideId]);
-  const { projects: visitProjects } = useLeaderstepsActiveProjects(isEdit ? undefined : visitDate || undefined, {
-    all: !isEdit && !visitDate,
+  const { projects: visitProjects } = useLeaderstepsActiveProjects(visitDate || undefined, {
+    all: !visitDate,
   });
   const visitProjectOptions = useMemo(() => {
     if (visitProjectId && !visitProjects.some((row) => row.id === visitProjectId)) {
@@ -256,9 +292,9 @@ export function DatasetPlaceFormPage(): JSX.Element {
     return visitProjects;
   }, [visitProjectId, visitProjects]);
   const { placeVisits, loading: visitLoading, errorMessage: visitError } = useGuidePlaceVisits({
-    guideId: !isEdit && visitGuideId ? visitGuideId : undefined,
-    projectId: !isEdit && visitProjectId ? visitProjectId : undefined,
-    date: !isEdit && visitDate ? visitDate : undefined,
+    guideId: lookupMode === 'visit' && visitGuideId ? visitGuideId : undefined,
+    projectId: lookupMode === 'visit' && visitProjectId ? visitProjectId : undefined,
+    date: lookupMode === 'visit' && visitDate ? visitDate : undefined,
   });
 
   const latitude = parseOptionalNumber(latInput);
@@ -365,6 +401,33 @@ export function DatasetPlaceFormPage(): JSX.Element {
     return [];
   }, [accommodationId, parentPlaceId, placeId, places]);
 
+  const catalogSearchResults = useMemo(() => {
+    const matches = searchCatalogPlaces(places, searchQuery, placeId);
+    if (searchQuery.trim()) return matches.slice(0, 20);
+    if (latitude != null && longitude != null) {
+      return [...matches]
+        .filter((row) => row.latitude != null && row.longitude != null)
+        .sort((left, right) => {
+          const leftDistance = distanceM(
+            { lat: latitude, lng: longitude },
+            { lat: left.latitude as number, lng: left.longitude as number },
+          );
+          const rightDistance = distanceM(
+            { lat: latitude, lng: longitude },
+            { lat: right.latitude as number, lng: right.longitude as number },
+          );
+          return leftDistance - rightDistance;
+        })
+        .slice(0, 12);
+    }
+    return matches.slice(0, 12);
+  }, [latitude, longitude, placeId, places, searchQuery]);
+
+  const catalogMapPlaces = useMemo(
+    () => catalogSearchResults.filter((row) => row.latitude != null && row.longitude != null),
+    [catalogSearchResults],
+  );
+
   const regionPath = [country, regions.find((row) => row.id === regionId)?.name, parentPlace?.name]
     .filter(Boolean)
     .join(' / ');
@@ -426,6 +489,24 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const applyPlaceCandidate = (row: { name: string | null; lat: number; lng: number }) => {
     if (row.name && !applyBusinessName(row.name)) return;
     applyCoords(row.lat, row.lng, 'map');
+  };
+
+  const applyExistingCatalogPlace = (row: CatalogPlaceRow) => {
+    if (row.latitude == null || row.longitude == null) {
+      if (row.name && !name.trim()) setName(row.name);
+      return;
+    }
+    if (!name.trim()) setName(row.name);
+    if (row.country) setCountry(row.country);
+    if (row.regionId) setRegionId(row.regionId);
+    applyCoords(row.latitude, row.longitude, 'map');
+  };
+
+  const changeLookupMode = (next: LocationLookupMode) => {
+    setLookupMode(next);
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearchError(null);
   };
 
   const handleNearbyPlaces = async () => {
@@ -867,104 +948,153 @@ export function DatasetPlaceFormPage(): JSX.Element {
                   </span>
                 }
               >
-                {!isEdit ? (
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <DatasetField label="참여자">
-                      <select
-                        className={datasetControlClass}
-                        value={visitGuideId}
-                        onChange={(event) => {
-                          setVisitGuideId(event.target.value);
-                          setSelectedVisitId(null);
-                        }}
-                      >
-                        <option value="">전체 보기</option>
-                        {visitPeople.map((row) => (
-                          <option key={row.id} value={row.id}>
-                            {row.nameKo}
-                            {row.nameMn ? ` · ${row.nameMn}` : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </DatasetField>
-                    <DatasetField label="방문 날짜">
+                <DatasetTabs
+                  items={LOCATION_LOOKUP_TABS}
+                  activeId={lookupMode}
+                  onChange={(id) => changeLookupMode(id as LocationLookupMode)}
+                  size="sm"
+                />
+                {lookupMode === 'visit' ? (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <DatasetField label="참여자">
+                        <select
+                          className={datasetControlClass}
+                          value={visitGuideId}
+                          onChange={(event) => {
+                            setVisitGuideId(event.target.value);
+                            setSelectedVisitId(null);
+                          }}
+                        >
+                          <option value="">전체 보기</option>
+                          {visitPeople.map((row) => (
+                            <option key={row.id} value={row.id}>
+                              {row.nameKo}
+                              {row.nameMn ? ` · ${row.nameMn}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </DatasetField>
+                      <DatasetField label="방문 날짜">
+                        <Input
+                          className={datasetControlClass}
+                          type="date"
+                          value={visitDate}
+                          onChange={(event) => {
+                            const nextDate = event.target.value;
+                            setVisitDate(nextDate);
+                            if (nextDate) setVisitProjectId('');
+                            setSelectedVisitId(null);
+                          }}
+                        />
+                      </DatasetField>
+                      <DatasetField label="프로젝트">
+                        <select
+                          className={datasetControlClass}
+                          value={visitProjectId}
+                          onChange={(event) => {
+                            setVisitProjectId(event.target.value);
+                            setSelectedVisitId(null);
+                          }}
+                        >
+                          <option value="">{visitDate ? '해당일 전체' : '전체 프로젝트'}</option>
+                          {visitProjectOptions.map((row) => (
+                            <option key={row.id} value={row.id}>
+                              {row.name}
+                            </option>
+                          ))}
+                        </select>
+                      </DatasetField>
+                    </div>
+                    {visitError ? (
+                      <p className="text-xs text-amber-600">{visitError}</p>
+                    ) : !visitDate && !visitProjectId && !visitGuideId ? (
+                      <p className="text-xs text-[#8B83B8]">날짜나 프로젝트를 고르면 가이드·현장 참여자 방문 핀을 겹칩니다.</p>
+                    ) : (
+                      <p className="text-xs text-[#8B83B8]">
+                        {visitLoading
+                          ? '현장 방문을 불러오는 중…'
+                          : `주황 핀 ${placeVisits.length}개 · 누르면 좌표·판정 초안을 채웁니다.`}
+                      </p>
+                    )}
+                  </>
+                ) : null}
+                {lookupMode === 'google' ? (
+                  <>
+                    <div className="flex gap-2">
                       <Input
                         className={datasetControlClass}
-                        type="date"
-                        value={visitDate}
-                        onChange={(event) => {
-                          const nextDate = event.target.value;
-                          setVisitDate(nextDate);
-                          if (nextDate) setVisitProjectId('');
-                          setSelectedVisitId(null);
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder="장소명 · 주소 · 좌표로 검색"
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            void handleSearch();
+                          }
                         }}
                       />
-                    </DatasetField>
-                    <DatasetField label="프로젝트">
-                      <select
-                        className={datasetControlClass}
-                        value={visitProjectId}
-                        onChange={(event) => {
-                          setVisitProjectId(event.target.value);
-                          setSelectedVisitId(null);
-                        }}
-                      >
-                        <option value="">{visitDate ? '해당일 전체' : '전체 프로젝트'}</option>
-                        {visitProjectOptions.map((row) => (
-                          <option key={row.id} value={row.id}>
-                            {row.name}
-                          </option>
+                      <DatasetButton type="button" variant="outline" onClick={() => void handleSearch()}>
+                        검색
+                      </DatasetButton>
+                    </div>
+                    {searchError ? <p className="text-xs text-amber-600">{searchError}</p> : null}
+                    {searchResults.length > 0 ? (
+                      <ul className="grid gap-1">
+                        {searchResults.map((row) => (
+                          <li key={`${row.lat}-${row.lng}-${row.label}`}>
+                            <button
+                              type="button"
+                              className="w-full rounded-lg border border-slate-100 px-3 py-2 text-left text-xs hover:bg-[#F8F6FF]"
+                              onClick={() => applyPlaceCandidate(row)}
+                            >
+                              {row.label}
+                              <span className="mt-0.5 block text-[#9A93C2]">
+                                {row.name ? '상호 · 이 위치 사용' : '이 위치 사용'}
+                              </span>
+                            </button>
+                          </li>
                         ))}
-                      </select>
-                    </DatasetField>
-                  </div>
+                      </ul>
+                    ) : null}
+                  </>
                 ) : null}
-                {isEdit ? null : visitError ? (
-                  <p className="text-xs text-amber-600">{visitError}</p>
-                ) : !visitDate && !visitProjectId && !visitGuideId ? (
-                  <p className="text-xs text-[#8B83B8]">날짜나 프로젝트를 고르면 가이드·현장 참여자 방문 핀을 겹칩니다.</p>
-                ) : (
-                  <p className="text-xs text-[#8B83B8]">
-                    {visitLoading
-                      ? '현장 방문을 불러오는 중…'
-                      : `주황 핀 ${placeVisits.length}개 · 누르면 좌표·판정 초안을 채웁니다.`}
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <Input
-                    className={datasetControlClass}
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="장소명 · 주소 · 좌표로 검색"
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        handleSearch();
-                      }
-                    }}
-                  />
-                  <DatasetButton type="button" variant="outline" onClick={() => void handleSearch()}>
-                    검색
-                  </DatasetButton>
-                </div>
-                {searchError ? <p className="text-xs text-amber-600">{searchError}</p> : null}
-                {searchResults.length > 0 ? (
-                  <ul className="grid gap-1">
-                    {searchResults.map((row) => (
-                      <li key={`${row.lat}-${row.lng}-${row.label}`}>
-                        <button
-                          type="button"
-                          className="w-full rounded-lg border border-slate-100 px-3 py-2 text-left text-xs hover:bg-[#F8F6FF]"
-                          onClick={() => applyPlaceCandidate(row)}
-                        >
-                          {row.label}
-                          <span className="mt-0.5 block text-[#9A93C2]">
-                            {row.name ? '상호 · 이 위치 사용' : '이 위치 사용'}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                {lookupMode === 'catalog' ? (
+                  <>
+                    <Input
+                      className={datasetControlClass}
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="등록된 장소명 또는 ID"
+                    />
+                    {catalogSearchResults.length === 0 ? (
+                      <p className="text-xs text-[#8B83B8]">
+                        {searchQuery.trim() ? '일치하는 기존 장소가 없습니다.' : '등록된 장소가 없습니다.'}
+                      </p>
+                    ) : (
+                      <ul className="grid max-h-48 gap-1 overflow-auto">
+                        {catalogSearchResults.map((row) => {
+                          const hasCoords = row.latitude != null && row.longitude != null;
+                          return (
+                            <li key={row.id}>
+                              <button
+                                type="button"
+                                className="w-full rounded-lg border border-slate-100 px-3 py-2 text-left text-xs hover:bg-[#F8F6FF] disabled:cursor-not-allowed disabled:opacity-60"
+                                disabled={!hasCoords}
+                                onClick={() => applyExistingCatalogPlace(row)}
+                              >
+                                {row.name} · {row.code} · {PLACE_TYPE_LABEL[row.placeType]}
+                                <span className="mt-0.5 block text-[#9A93C2]">
+                                  {[row.region?.name, row.parentPlace?.name].filter(Boolean).join(' / ') || row.country}
+                                  {hasCoords ? ' · 이 위치 사용' : ' · 좌표 없음'}
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </>
                 ) : null}
                 <div className="relative h-[280px] overflow-hidden rounded-xl border border-slate-100">
                   {latitude == null && longitude == null ? (
@@ -973,19 +1103,22 @@ export function DatasetPlaceFormPage(): JSX.Element {
                     </div>
                   ) : null}
                   <DatasetPlaceFormMap
-                    relatedPlaces={relatedPlaces}
+                    relatedPlaces={lookupMode === 'catalog' ? [] : relatedPlaces}
+                    existingPlaces={lookupMode === 'catalog' ? catalogMapPlaces : []}
                     latitude={latitude}
                     longitude={longitude}
                     focus={focus}
                     visitRadiusM={visitRadiusM}
-                    visits={isEdit ? [] : placeVisits}
+                    visits={lookupMode === 'visit' ? placeVisits : []}
                     selectedVisitId={selectedVisitId}
+                    clickableIcons={lookupMode === 'google'}
                     onPick={(lat, lng) => {
                       applyCoords(lat, lng, 'map');
                       void lookupNearbyPlaces(lat, lng);
                     }}
                     onPickPoi={(placeId, lat, lng) => void handleMapPoi(placeId, lat, lng)}
                     onSelectVisit={applyVisitDraft}
+                    onSelectExisting={applyExistingCatalogPlace}
                   />
                   {nearbyLoading ? <p className="text-xs text-[#8B83B8]">근처 상호를 찾는 중…</p> : null}
                   <NearbyPlaceButtons places={nearbyPlaces} onPick={applyPlaceCandidate} />

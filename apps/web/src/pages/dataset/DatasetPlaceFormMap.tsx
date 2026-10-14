@@ -4,43 +4,54 @@ import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import { buildPlaceVisitMarkerIcon } from '../../features/guide/guide-location-map-utils';
 import type { GuidePlaceVisitRow } from '../../features/guide/hooks';
 import { GOOGLE_MAPS_API_KEY } from '../../lib/google-maps-api-key';
-import { useGoogleMapsLoader } from '../../lib/google-maps-loader';
+import { DEFAULT_GOOGLE_MAP_TYPE_ID, useGoogleMapsLoader } from '../../lib/google-maps-loader';
 
 const DEFAULT_CENTER = { lat: 47.8512, lng: 106.912 };
 const CONTAINER_STYLE = { width: '100%', height: '100%' };
 
 interface DatasetPlaceFormMapProps {
   relatedPlaces: CatalogPlaceRow[];
+  existingPlaces?: CatalogPlaceRow[];
   latitude: number | null;
   longitude: number | null;
   focus: { lat: number; lng: number } | null;
   visitRadiusM?: number | null;
   visits?: GuidePlaceVisitRow[];
   selectedVisitId?: string | null;
+  clickableIcons?: boolean;
   onPick: (lat: number, lng: number) => void;
   onPickPoi?: (placeId: string, lat: number, lng: number) => void;
   onSelectVisit?: (visit: GuidePlaceVisitRow) => void;
+  onSelectExisting?: (place: CatalogPlaceRow) => void;
 }
 
 export function DatasetPlaceFormMap({
   relatedPlaces,
+  existingPlaces = [],
   latitude,
   longitude,
   focus,
   visitRadiusM,
   visits = [],
   selectedVisitId = null,
+  clickableIcons = true,
   onPick,
   onPickPoi,
   onSelectVisit,
+  onSelectExisting,
 }: DatasetPlaceFormMapProps): JSX.Element {
   const { isLoaded, loadError } = useGoogleMapsLoader();
   const mapRef = useRef<google.maps.Map | null>(null);
   const [satellite, setSatellite] = useState(true);
+  const mapTypeId = satellite ? DEFAULT_GOOGLE_MAP_TYPE_ID : 'roadmap';
 
   const relatedMarkers = useMemo(
     () => relatedPlaces.filter((row) => row.latitude != null && row.longitude != null),
     [relatedPlaces],
+  );
+  const existingMarkers = useMemo(
+    () => existingPlaces.filter((row) => row.latitude != null && row.longitude != null),
+    [existingPlaces],
   );
 
   const hasDraft = latitude != null && longitude != null;
@@ -64,13 +75,25 @@ export function DatasetPlaceFormMap({
       map.fitBounds(bounds, 48);
       return;
     }
+    if (existingMarkers.length > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      for (const row of existingMarkers) {
+        bounds.extend({ lat: row.latitude as number, lng: row.longitude as number });
+      }
+      map.fitBounds(bounds, 48);
+      return;
+    }
     if (relatedMarkers.length === 0) return;
     const bounds = new google.maps.LatLngBounds();
     for (const row of relatedMarkers) {
       bounds.extend({ lat: row.latitude as number, lng: row.longitude as number });
     }
     map.fitBounds(bounds, 64);
-  }, [focus, hasDraft, latitude, longitude, relatedMarkers, visits]);
+  }, [existingMarkers, focus, hasDraft, latitude, longitude, relatedMarkers, visits]);
+
+  useEffect(() => {
+    mapRef.current?.setMapTypeId(mapTypeId);
+  }, [mapTypeId]);
 
   if (!GOOGLE_MAPS_API_KEY) {
     return (
@@ -94,9 +117,10 @@ export function DatasetPlaceFormMap({
       mapContainerStyle={CONTAINER_STYLE}
       center={DEFAULT_CENTER}
       zoom={12}
-      mapTypeId={satellite ? 'hybrid' : 'roadmap'}
+      mapTypeId={mapTypeId}
       onLoad={(map) => {
         mapRef.current = map;
+        map.setMapTypeId(mapTypeId);
       }}
       onClick={(event) => {
         const lat = event.latLng?.lat();
@@ -111,10 +135,11 @@ export function DatasetPlaceFormMap({
         onPick(lat, lng);
       }}
       options={{
+        mapTypeId,
         streetViewControl: false,
         mapTypeControl: false,
         fullscreenControl: false,
-        clickableIcons: true,
+        clickableIcons,
         draggableCursor: 'crosshair',
         styles: satellite
           ? undefined
@@ -145,6 +170,27 @@ export function DatasetPlaceFormMap({
               {row.name} · {row.code}
             </div>
           </div>
+        </OverlayViewF>
+      ))}
+      {existingMarkers.map((row) => (
+        <OverlayViewF
+          key={`existing-${row.id}`}
+          position={{ lat: row.latitude as number, lng: row.longitude as number }}
+          mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+        >
+          <button
+            type="button"
+            className="relative h-0 w-0"
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelectExisting?.(row);
+            }}
+          >
+            <span className="absolute left-0 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#5B4BD6] ring-2 ring-white" />
+            <div className="absolute left-3 top-[-10px] whitespace-nowrap rounded border border-[#D9D2F8] bg-white px-1.5 py-0.5 text-[10px] text-[#4A3CC0] shadow-sm">
+              {row.name} · {row.code}
+            </div>
+          </button>
         </OverlayViewF>
       ))}
       {hasDraft && visitRadiusM != null ? (
