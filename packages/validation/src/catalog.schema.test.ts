@@ -80,6 +80,19 @@ describe('catalog place visit judgment', () => {
     if (result.success) expect(result.data.otherTypeLabel).toBeNull();
   });
 
+  it('keeps multiple region ids and uses the first as the primary region', () => {
+    const result = catalogPlaceCreateSchema.safeParse({
+      name: '옹기사원',
+      placeType: 'EXPERIENCE',
+      regionIds: ['gobi', 'central', 'gobi'],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.regionIds).toEqual(['gobi', 'central']);
+      expect(result.data.regionId).toBe('gobi');
+    }
+  });
+
   it('rejects a zero visit radius', () => {
     const result = catalogPlaceUpdateSchema.safeParse({
       visitRadiusM: 0,

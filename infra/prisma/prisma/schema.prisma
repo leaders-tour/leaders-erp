@@ -2343,6 +2343,7 @@ model CatalogRegion {
   sortOrder   Int                @default(0)
 
   places CatalogPlace[]
+  placeLinks CatalogPlaceRegion[]
   routes CatalogRoute[]
 
   createdAt DateTime @default(now())
@@ -2375,6 +2376,7 @@ model CatalogPlace {
   sortOrder        Int                @default(0)
 
   region        CatalogRegion?  @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  placeRegions  CatalogPlaceRegion[]
   parentPlace   CatalogPlace?   @relation("CatalogPlaceParent", fields: [parentPlaceId], references: [id], onDelete: SetNull)
   childPlaces   CatalogPlace[]  @relation("CatalogPlaceParent")
   fromRoutes    CatalogRoute[]  @relation("CatalogRouteFrom")
@@ -2392,6 +2394,17 @@ model CatalogPlace {
   @@index([regionId])
   @@index([parentPlaceId])
   @@index([accommodationId])
+}
+
+model CatalogPlaceRegion {
+  placeId  String
+  regionId String
+
+  place  CatalogPlace  @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  region CatalogRegion @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  @@id([placeId, regionId])
+  @@index([regionId])
 }
 
 model CatalogVisitLink {

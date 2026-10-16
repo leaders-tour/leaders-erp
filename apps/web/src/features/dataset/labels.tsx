@@ -59,6 +59,40 @@ export function catalogPlaceTypeLabel(
   return PLACE_TYPE_LABEL[placeType];
 }
 
+export interface CatalogPlaceRegionRef {
+  id: string;
+  name: string;
+}
+
+export function catalogPlaceRegionIds(place: {
+  regionId?: string | null;
+  regionIds?: string[] | null;
+  regions?: CatalogPlaceRegionRef[] | null;
+}): string[] {
+  if (place.regionIds && place.regionIds.length > 0) return place.regionIds;
+  if (place.regions && place.regions.length > 0) return place.regions.map((row) => row.id);
+  return place.regionId ? [place.regionId] : [];
+}
+
+export function catalogPlaceHasRegion(
+  place: {
+    regionId?: string | null;
+    regionIds?: string[] | null;
+    regions?: CatalogPlaceRegionRef[] | null;
+  },
+  regionId: string,
+): boolean {
+  return catalogPlaceRegionIds(place).includes(regionId);
+}
+
+export function catalogPlaceRegionNames(place: {
+  region?: { name: string } | null;
+  regions?: CatalogPlaceRegionRef[] | null;
+}): string {
+  if (place.regions && place.regions.length > 0) return place.regions.map((row) => row.name).join(' · ');
+  return place.region?.name ?? '';
+}
+
 export function canLinkAccommodation(placeType: CatalogPlaceType): boolean {
   return placeType === 'LODGING' || placeType === 'RESTAURANT';
 }

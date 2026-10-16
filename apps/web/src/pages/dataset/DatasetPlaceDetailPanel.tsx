@@ -5,6 +5,7 @@ import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import {
   DatasetPageFooter,
   DatasetStubNotice,
+  catalogPlaceRegionNames,
   catalogPlaceTypeLabel,
   StatusBadge,
   TypePill,
@@ -124,7 +125,9 @@ export function DatasetPlaceDetailPanel({
   );
 
   const primaryGate = relatedGates[0] ?? null;
-  const regionPath = [place.country, place.region?.name, place.parentPlace?.name].filter(Boolean).join(' / ');
+  const regionPath = [place.country, catalogPlaceRegionNames(place) || null, place.parentPlace?.name]
+    .filter(Boolean)
+    .join(' / ');
   const lodgingCode = lodgingDisplayCode(place);
   const typeLabel = catalogPlaceTypeLabel(place.placeType, place.otherTypeLabel);
   const lodgingTypeLabel = LODGING_TYPE_UI[place.name] ?? (isLodging ? '숙소' : typeLabel);
@@ -228,7 +231,7 @@ export function DatasetPlaceDetailPanel({
                     />
                     <dl className="grid gap-4 px-4 py-4 sm:grid-cols-2">
                       <InfoRow label="국가">{place.country}</InfoRow>
-                      <InfoRow label="권역">{place.region?.name ?? '-'}</InfoRow>
+                      <InfoRow label="권역">{catalogPlaceRegionNames(place) || '-'}</InfoRow>
                       <InfoRow label="상위 목적지">{place.parentPlace?.name ?? '-'}</InfoRow>
                       <InfoRow label={isLodging ? '숙소 유형' : '장소 유형'}>{lodgingTypeLabel}</InfoRow>
                       {isLodging ? (

@@ -8,6 +8,7 @@ import {
   PLACE_TYPE_LABEL,
   STATUS_LABEL,
   StatusBadge,
+  catalogPlaceRegionNames,
   catalogPlaceTypeLabel,
   type CatalogPlaceType,
 } from '../../features/dataset/labels';
@@ -120,12 +121,18 @@ export function DatasetPlacesPage(): JSX.Element {
       if (status !== 'ALL' && row.status !== status) return false;
       if (placeType !== 'ALL' && row.placeType !== placeType) return false;
       if (country !== 'ALL' && row.country !== country) return false;
-      if (regionName !== 'ALL' && row.region?.name !== regionName) return false;
+      if (
+        regionName !== 'ALL' &&
+        !(row.regions?.some((region) => region.name === regionName) || row.region?.name === regionName)
+      ) {
+        return false;
+      }
       if (parentPlaceId !== 'ALL' && row.parentPlaceId !== parentPlaceId) return false;
       if (!keyword) return true;
       return (
         row.name.toLowerCase().includes(keyword) ||
         row.code.toLowerCase().includes(keyword) ||
+        catalogPlaceRegionNames(row).toLowerCase().includes(keyword) ||
         (row.parentPlace?.name.toLowerCase().includes(keyword) ?? false) ||
         (row.otherTypeLabel?.toLowerCase().includes(keyword) ?? false)
       );
@@ -146,9 +153,17 @@ export function DatasetPlacesPage(): JSX.Element {
   );
   const regionNames = useMemo(
     () =>
-      Array.from(new Set(listPlaces.map((row) => row.region?.name).filter(Boolean) as string[])).sort((a, b) =>
-        a.localeCompare(b, 'ko'),
-      ),
+      Array.from(
+        new Set(
+          listPlaces.flatMap((row) =>
+            row.regions && row.regions.length > 0
+              ? row.regions.map((region) => region.name)
+              : row.region?.name
+                ? [row.region.name]
+                : [],
+          ),
+        ),
+      ).sort((a, b) => a.localeCompare(b, 'ko')),
     [listPlaces],
   );
   const parentPlaces = useMemo(() => {
@@ -501,7 +516,7 @@ export function DatasetPlacesPage(): JSX.Element {
                       const meta = [
                         row.code,
                         catalogPlaceTypeLabel(row.placeType, row.otherTypeLabel),
-                        [row.country, row.region?.name].filter(Boolean).join(' / ') || null,
+                        [row.country, catalogPlaceRegionNames(row) || null].filter(Boolean).join(' / ') || null,
                         row.parentPlace?.name,
                         row.latitude != null && row.longitude != null ? '좌표 등록' : '좌표 미등록',
                         row.lodgingLevel,

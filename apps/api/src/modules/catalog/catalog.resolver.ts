@@ -37,6 +37,17 @@ interface ChangeLogArgs {
 
 type CatalogVisitLinkStatus = 'AUTO' | 'REVIEW' | 'UNLINKED' | 'MANUAL';
 
+function orderByPrimary<T extends { id: string }>(rows: T[], primaryId?: string | null): T[] {
+  const seen = new Set<string>();
+  const unique = rows.filter((row) => {
+    if (!row.id || seen.has(row.id)) return false;
+    seen.add(row.id);
+    return true;
+  });
+  if (!primaryId) return unique;
+  return [...unique.filter((row) => row.id === primaryId), ...unique.filter((row) => row.id !== primaryId)];
+}
+
 interface VisitLinkListArgs {
   statuses?: CatalogVisitLinkStatus[];
   regionId?: string | null;
@@ -134,6 +145,37 @@ export const catalogResolver = {
   },
   CatalogPlace: {
     accommodation: (parent: { accommodation?: unknown }) => parent.accommodation ?? null,
+    regions: (parent: {
+      regionId?: string | null;
+      regions?: Array<{ id: string; name: string }>;
+      placeRegions?: Array<{ region?: { id: string; name: string } | null }>;
+      region?: { id: string; name: string } | null;
+    }) => {
+      if (parent.regions && parent.regions.length > 0) return orderByPrimary(parent.regions, parent.regionId);
+      const fromLinks = (parent.placeRegions ?? [])
+        .map((link) => link.region)
+        .filter((row): row is { id: string; name: string } => Boolean(row));
+      if (fromLinks.length > 0) return orderByPrimary(fromLinks, parent.regionId);
+      return parent.region ? [parent.region] : [];
+    },
+    regionIds: (parent: {
+      regionId?: string | null;
+      regionIds?: string[];
+      regions?: Array<{ id: string }>;
+      placeRegions?: Array<{ regionId?: string; region?: { id: string } | null }>;
+    }) => {
+      const fromIds = parent.regionIds && parent.regionIds.length > 0 ? parent.regionIds : null;
+      const fromRegions =
+        parent.regions && parent.regions.length > 0 ? parent.regions.map((row) => row.id) : null;
+      const fromLinks = (parent.placeRegions ?? [])
+        .map((link) => link.region?.id ?? link.regionId)
+        .filter((id): id is string => Boolean(id));
+      const ids = fromIds ?? fromRegions ?? (fromLinks.length > 0 ? fromLinks : parent.regionId ? [parent.regionId] : []);
+      return orderByPrimary(
+        ids.map((id) => ({ id })),
+        parent.regionId,
+      ).map((row) => row.id);
+    },
   },
   CatalogVisitLink: {
     candidates: (parent: { candidates?: unknown }) => parseVisitLinkCandidates(parent.candidates),

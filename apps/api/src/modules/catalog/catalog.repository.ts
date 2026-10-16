@@ -69,9 +69,21 @@ function nextCode(prefix: string, count: number): string {
 
 const placeInclude = {
   region: true,
+  placeRegions: { include: { region: true }, orderBy: { regionId: 'asc' as const } },
   parentPlace: true,
   accommodation: { select: { id: true, name: true, region: true, destination: true } },
 } as const;
+
+function uniqueIds(ids: readonly (string | null | undefined)[]): string[] {
+  return [...new Set(ids.filter((id): id is string => Boolean(id)))];
+}
+
+function placeRegionWrites(regionIds: string[]) {
+  return {
+    deleteMany: {},
+    ...(regionIds.length > 0 ? { create: regionIds.map((regionId) => ({ regionId })) } : {}),
+  };
+}
 
 const visitLinkInclude = {
   place: { include: placeInclude },
@@ -224,6 +236,7 @@ export class CatalogRepository {
 
   async createPlace(data: CatalogPlaceCreateInput) {
     const count = await this.prisma.catalogPlace.count();
+    const regionIds = uniqueIds(data.regionIds ?? (data.regionId ? [data.regionId] : []));
     return this.prisma.catalogPlace.create({
       data: {
         code: nextCode('PL', count),
@@ -231,7 +244,8 @@ export class CatalogRepository {
         placeType: data.placeType,
         otherTypeLabel: data.placeType === 'OTHER' ? (data.otherTypeLabel ?? null) : null,
         country: data.country ?? '몽골',
-        regionId: data.regionId ?? null,
+        regionId: regionIds[0] ?? null,
+        placeRegions: regionIds.length > 0 ? { create: regionIds.map((regionId) => ({ regionId })) } : undefined,
         parentPlaceId: data.parentPlaceId ?? null,
         latitude: data.latitude ?? null,
         longitude: data.longitude ?? null,
@@ -249,6 +263,7 @@ export class CatalogRepository {
   }
 
   updatePlace(id: string, data: CatalogPlaceUpdateInput) {
+    const regionIds = data.regionIds ? uniqueIds(data.regionIds) : data.regionId !== undefined ? uniqueIds([data.regionId]) : null;
     return this.prisma.catalogPlace.update({
       where: { id },
       data: {
@@ -260,7 +275,9 @@ export class CatalogRepository {
             ? { otherTypeLabel: data.otherTypeLabel }
             : {}),
         ...(data.country != null ? { country: data.country } : {}),
-        ...(data.regionId !== undefined ? { regionId: data.regionId } : {}),
+        ...(regionIds
+          ? { regionId: regionIds[0] ?? null, placeRegions: placeRegionWrites(regionIds) }
+          : {}),
         ...(data.parentPlaceId !== undefined ? { parentPlaceId: data.parentPlaceId } : {}),
         ...(data.latitude !== undefined ? { latitude: data.latitude } : {}),
         ...(data.longitude !== undefined ? { longitude: data.longitude } : {}),
@@ -578,7 +595,12 @@ export class CatalogRepository {
           where: { id },
           data: {
             ...(input.status != null ? { status: input.status } : {}),
-            ...(input.regionId !== undefined ? { regionId: input.regionId } : {}),
+            ...(input.regionId !== undefined
+              ? {
+                  regionId: input.regionId,
+                  placeRegions: placeRegionWrites(uniqueIds([input.regionId])),
+                }
+              : {}),
           },
         });
         results.push({ id, ok: true, message: '성공' });
@@ -638,7 +660,18 @@ export class CatalogRepository {
         ? {
             OR: [
               ...(filter.visitRegion ? [{ visitRegion: filter.visitRegion }] : []),
-              ...(filter.regionId ? [{ place: { regionId: filter.regionId } }] : []),
+              ...(filter.regionId
+                ? [
+                    {
+                      place: {
+                        OR: [
+                          { regionId: filter.regionId },
+                          { placeRegions: { some: { regionId: filter.regionId } } },
+                        ],
+                      },
+                    },
+                  ]
+                : []),
             ],
           }
         : {};
@@ -719,11 +752,16 @@ export class CatalogRepository {
     const where = {
       ...(filter.projectId ? { projectId: filter.projectId } : {}),
       ...(filter.routeId ? { routeId: filter.routeId } : {}),
-      ...(filter.regionId
-        ? {
-            OR: [{ fromPlace: { regionId: filter.regionId } }, { toPlace: { regionId: filter.regionId } }],
-          }
-        : {}),
+        ...(filter.regionId
+          ? {
+              OR: [
+                { fromPlace: { regionId: filter.regionId } },
+                { toPlace: { regionId: filter.regionId } },
+                { fromPlace: { placeRegions: { some: { regionId: filter.regionId } } } },
+                { toPlace: { placeRegions: { some: { regionId: filter.regionId } } } },
+              ],
+            }
+          : {}),
     };
     const ordered = await this.prisma.catalogRouteObservation.findMany({
       where,

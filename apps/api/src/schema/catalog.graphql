@@ -99,6 +99,8 @@ type CatalogPlace {
   country: String!
   regionId: ID
   region: CatalogRegion
+  regionIds: [ID!]!
+  regions: [CatalogRegion!]!
   parentPlaceId: ID
   parentPlace: CatalogPlace
   latitude: Float
@@ -384,6 +386,7 @@ input CatalogPlaceCreateInput {
   otherTypeLabel: String
   country: String
   regionId: ID
+  regionIds: [ID!]
   parentPlaceId: ID
   latitude: Float
   longitude: Float
@@ -402,6 +405,7 @@ input CatalogPlaceUpdateInput {
   otherTypeLabel: String
   country: String
   regionId: ID
+  regionIds: [ID!]
   parentPlaceId: ID
   latitude: Float
   longitude: Float

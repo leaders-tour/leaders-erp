@@ -37,6 +37,7 @@ const catalogPlaceFields = z.object({
   otherTypeLabel: z.string().trim().max(40).nullable().optional(),
   country: z.string().min(1).max(60).optional(),
   regionId: optionalId,
+  regionIds: z.array(z.string().min(1)).max(20).optional(),
   parentPlaceId: optionalId,
   latitude: z.number().nullable().optional(),
   longitude: z.number().nullable().optional(),
@@ -85,6 +86,17 @@ function requireOtherTypeLabel(
   }
 }
 
+function normalizeRegionIds<T extends { regionId?: string | null; regionIds?: string[] }>(data: T): T {
+  if (data.regionIds) {
+    const unique = [...new Set(data.regionIds)];
+    return { ...data, regionIds: unique, regionId: unique[0] ?? null };
+  }
+  if (data.regionId !== undefined) {
+    return { ...data, regionIds: data.regionId ? [data.regionId] : [], regionId: data.regionId };
+  }
+  return data;
+}
+
 function normalizeOtherTypeLabel<
   T extends { placeType?: z.infer<typeof catalogPlaceTypeSchema>; otherTypeLabel?: string | null },
 >(data: T): T {
@@ -106,6 +118,7 @@ function stripStayMinutesForPass<T extends { visitJudgmentType?: 'PASS' | 'STAY'
 export const catalogPlaceCreateSchema = catalogPlaceFields
   .superRefine(lodgingOnlyAccommodation)
   .superRefine(requireOtherTypeLabel)
+  .transform(normalizeRegionIds)
   .transform(normalizeOtherTypeLabel)
   .transform(stripStayMinutesForPass);
 
@@ -113,6 +126,7 @@ export const catalogPlaceUpdateSchema = catalogPlaceFields
   .partial()
   .superRefine(lodgingOnlyAccommodation)
   .superRefine(requireOtherTypeLabel)
+  .transform(normalizeRegionIds)
   .transform(normalizeOtherTypeLabel)
   .transform(stripStayMinutesForPass);
 

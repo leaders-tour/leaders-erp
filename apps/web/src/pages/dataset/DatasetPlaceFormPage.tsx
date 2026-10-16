@@ -26,6 +26,8 @@ import {
   PLACE_TYPE_LABEL,
   VISIT_JUDGMENT_TYPE_LABEL,
   canLinkAccommodation,
+  catalogPlaceRegionIds,
+  catalogPlaceRegionNames,
   catalogPlaceTypeLabel,
   defaultVisitJudgmentType,
   nearbyPlaceKind,
@@ -52,7 +54,15 @@ function normalizePlaceSearch(value: string): string {
 }
 
 function catalogPlaceSearchHaystack(row: CatalogPlaceRow): string {
-  return [row.name, row.displayName, row.code, row.otherTypeLabel, row.region?.name, row.parentPlace?.name, row.country]
+  return [
+    row.name,
+    row.displayName,
+    row.code,
+    row.otherTypeLabel,
+    catalogPlaceRegionNames(row),
+    row.parentPlace?.name,
+    row.country,
+  ]
     .filter(Boolean)
     .join(' ');
 }
@@ -225,6 +235,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const [parentPlaceId, setParentPlaceId] = useState(initialType === 'AREA' ? '' : searchParams.get('parentId') ?? '');
   const [country, setCountry] = useState('몽골');
   const [regionId, setRegionId] = useState('');
+  const [regionIds, setRegionIds] = useState<string[]>([]);
   const [accommodationId, setAccommodationId] = useState(
     canLinkAccommodation(initialType) ? searchParams.get('accommodationId') ?? '' : '',
   );
@@ -361,6 +372,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setParentPlaceId(editingPlace.placeType === 'AREA' ? '' : editingPlace.parentPlaceId ?? '');
     setCountry(editingPlace.country);
     setRegionId(editingPlace.regionId ?? '');
+    setRegionIds(catalogPlaceRegionIds(editingPlace));
     setAccommodationId(canLinkAccommodation(editingPlace.placeType) ? editingPlace.accommodationId ?? '' : '');
     setLatInput(formatCoord(editingPlace.latitude));
     setLngInput(formatCoord(editingPlace.longitude));
@@ -389,7 +401,11 @@ export function DatasetPlaceFormPage(): JSX.Element {
     }
     if (!parentPlace) return;
     if (parentPlace.country) setCountry(parentPlace.country);
-    if (parentPlace.regionId) setRegionId(parentPlace.regionId);
+    const parentRegionIds = catalogPlaceRegionIds(parentPlace);
+    if (parentRegionIds.length > 0) {
+      setRegionIds((current) => (current.length > 0 ? current : parentRegionIds));
+      setRegionId((current) => current || parentRegionIds[0] || '');
+    }
     if (showLodgingSection && parentPlace.accommodationId) setAccommodationId(parentPlace.accommodationId);
     if (parentPlace.latitude != null && parentPlace.longitude != null && latitude == null && longitude == null) {
       setFocus({ lat: parentPlace.latitude, lng: parentPlace.longitude });
@@ -442,7 +458,10 @@ export function DatasetPlaceFormPage(): JSX.Element {
     [accommodationQuery, accommodations],
   );
 
-  const regionPath = [country, regions.find((row) => row.id === regionId)?.name, parentPlace?.name]
+  const selectedRegions = regionIds
+    .map((id) => regions.find((row) => row.id === id))
+    .filter((row): row is (typeof regions)[number] => Boolean(row));
+  const regionPath = [country, catalogPlaceRegionNames({ regions: selectedRegions }), parentPlace?.name]
     .filter(Boolean)
     .join(' / ');
 
@@ -517,7 +536,11 @@ export function DatasetPlaceFormPage(): JSX.Element {
       setParentPlaceId(row.id);
     } else {
       if (row.country) setCountry(row.country);
-      if (row.regionId) setRegionId(row.regionId);
+      const nextRegionIds = catalogPlaceRegionIds(row);
+      if (nextRegionIds.length > 0) {
+        setRegionIds(nextRegionIds);
+        setRegionId(nextRegionIds[0] ?? '');
+      }
     }
     applyCoords(row.latitude, row.longitude, 'map', { zoom: PLACE_FOCUS_ZOOM });
   };
@@ -625,7 +648,8 @@ export function DatasetPlaceFormPage(): JSX.Element {
     placeType,
     otherTypeLabel: isOther ? otherTypeLabel.trim() || null : null,
     country: country.trim() || '몽골',
-    regionId: regionId || null,
+    regionId: regionIds[0] || regionId || null,
+    regionIds,
     parentPlaceId: isArea ? null : parentPlaceId || null,
     latitude,
     longitude,
@@ -671,7 +695,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
         status !== editingPlace.status ||
         parentPlaceId !== (editingPlace.parentPlaceId ?? '') ||
         country !== editingPlace.country ||
-        regionId !== (editingPlace.regionId ?? '') ||
+        regionIds.join(',') !== catalogPlaceRegionIds(editingPlace).join(',') ||
         accommodationId !== (editingPlace.accommodationId ?? '') ||
         latInput !== formatCoord(editingPlace.latitude) ||
         lngInput !== formatCoord(editingPlace.longitude) ||
@@ -839,21 +863,41 @@ export function DatasetPlaceFormPage(): JSX.Element {
                       disabled={!isArea && Boolean(parentPlace)}
                     />
                   </DatasetField>
-                  <DatasetField label="권역">
-                    <select
-                      className={datasetControlClass}
-                      value={regionId}
-                      onChange={(event) => setRegionId(event.target.value)}
-                      disabled={!isArea && Boolean(parentPlace?.regionId)}
-                    >
-                      <option value="">선택 안 함</option>
-                      {regions.map((row) => (
-                        <option key={row.id} value={row.id}>
-                          {row.name}
-                        </option>
-                      ))}
-                    </select>
-                  </DatasetField>
+                  <div className="grid gap-1 text-xs font-medium text-slate-500">
+                    <span>권역</span>
+                    <div className="flex flex-wrap gap-2">
+                      {regions.map((row) => {
+                        const checked = regionIds.includes(row.id);
+                        return (
+                          <label
+                            key={row.id}
+                            className={`inline-flex h-10 cursor-pointer items-center rounded-xl border px-3 text-sm ${
+                              checked
+                                ? 'border-[#5B4BD6] bg-[#F8F6FF] text-[#5B4BD6]'
+                                : 'border-slate-200 bg-white text-slate-700'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="mr-1.5"
+                              checked={checked}
+                              onChange={() => {
+                                setRegionIds((current) => {
+                                  const next = checked
+                                    ? current.filter((id) => id !== row.id)
+                                    : [...current, row.id];
+                                  setRegionId(next[0] ?? '');
+                                  return next;
+                                });
+                              }}
+                            />
+                            {row.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <p className="font-normal text-[#8B83B8]">고비↔중부처럼 경로상 지점은 권역을 여러 개 고를 수 있습니다.</p>
+                  </div>
                 </div>
                 {isArea ? null : <p className="text-xs text-[#8B83B8]">상위 장소의 좌표는 새 지점의 좌표로 복사하지 않습니다.</p>}
               </Section>
@@ -1162,7 +1206,8 @@ export function DatasetPlaceFormPage(): JSX.Element {
                               >
                                 {row.name} · {row.code} · {catalogPlaceTypeLabel(row.placeType, row.otherTypeLabel)}
                                 <span className="mt-0.5 block text-[#9A93C2]">
-                                  {[row.region?.name, row.parentPlace?.name].filter(Boolean).join(' / ') || row.country}
+                                  {[catalogPlaceRegionNames(row) || null, row.parentPlace?.name].filter(Boolean).join(' / ') ||
+                                    row.country}
                                   {hasCoords ? ' · 이 위치 사용' : ' · 좌표 없음'}
                                 </span>
                               </button>

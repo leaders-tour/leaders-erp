@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
-import { STATUS_LABEL, VISIT_JUDGMENT_TYPE_LABEL, catalogPlaceTypeLabel } from '../../features/dataset/labels';
+import {
+  STATUS_LABEL,
+  VISIT_JUDGMENT_TYPE_LABEL,
+  catalogPlaceRegionNames,
+  catalogPlaceTypeLabel,
+} from '../../features/dataset/labels';
 import { DatasetButton, DatasetCard, StubButton } from '../../features/dataset/ui';
 
 interface DatasetPlaceSelectionSummaryProps {
@@ -25,7 +30,9 @@ export function DatasetPlaceSelectionSummary({
 }: DatasetPlaceSelectionSummaryProps): JSX.Element {
   const isLodging = place.placeType === 'LODGING';
   const hasCoords = place.latitude != null && place.longitude != null;
-  const regionPath = [place.country, place.region?.name, place.parentPlace?.name].filter(Boolean).join(' / ');
+  const regionPath = [place.country, catalogPlaceRegionNames(place) || null, place.parentPlace?.name]
+    .filter(Boolean)
+    .join(' / ');
   const lodgingCode = lodgingDisplayCode(place);
   const judgmentType = place.visitJudgmentType;
   const radiusM = place.visitRadiusM;

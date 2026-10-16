@@ -1,3 +1,32 @@
+query CatalogPlaces {
+  catalogPlaces {
+    id
+    code
+    name
+    placeType
+    otherTypeLabel
+    country
+    regionId
+    region {
+      id
+      name
+    }
+    regionIds
+    regions {
+      id
+      name
+    }
+    parentPlaceId
+    parentPlace {
+      id
+      name
+    }
+    latitude
+    longitude
+    status
+  }
+}
+
 query CatalogRoutes {
   catalogRoutes {
     id

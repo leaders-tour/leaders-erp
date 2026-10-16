@@ -32,6 +32,8 @@ export interface CatalogPlaceRow {
   country: string;
   regionId: string | null;
   region: { id: string; name: string } | null;
+  regionIds: string[];
+  regions: Array<{ id: string; name: string }>;
   parentPlaceId: string | null;
   parentPlace: { id: string; name: string } | null;
   latitude: number | null;
@@ -230,6 +232,11 @@ const PLACES_QUERY = gql`
       country
       regionId
       region {
+        id
+        name
+      }
+      regionIds
+      regions {
         id
         name
       }

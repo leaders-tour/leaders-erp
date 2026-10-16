@@ -7,7 +7,13 @@ import {
   useUpdateCatalogPlace,
   useUpdateCatalogRegion,
 } from '../../features/dataset/hooks';
-import { StatusBadge, catalogPlaceTypeLabel, type CatalogUsageStatus } from '../../features/dataset/labels';
+import {
+  StatusBadge,
+  catalogPlaceHasRegion,
+  catalogPlaceRegionIds,
+  catalogPlaceTypeLabel,
+  type CatalogUsageStatus,
+} from '../../features/dataset/labels';
 import { datasetTheme } from '../../features/dataset/theme';
 import { DatasetButton, DatasetCard, DatasetField, DatasetFilterBar, datasetControlClass } from '../../features/dataset/ui';
 import { DatasetPlaceMap } from './DatasetPlaceMap';
@@ -89,12 +95,15 @@ export function DatasetRegionsPanel({
   useEffect(() => {
     if (!selectedPlaceId) return;
     const place = places.find((row) => row.id === selectedPlaceId);
-    if (place?.regionId) setSelectedRegionId(place.regionId);
-  }, [places, selectedPlaceId]);
+    if (!place) return;
+    if (selectedRegionId && catalogPlaceHasRegion(place, selectedRegionId)) return;
+    const nextId = catalogPlaceRegionIds(place)[0];
+    if (nextId) setSelectedRegionId(nextId);
+  }, [places, selectedPlaceId, selectedRegionId]);
 
   const selectedRegion = regions.find((row) => row.id === selectedRegionId) ?? null;
   const regionPlaces = useMemo(
-    () => (selectedRegion ? places.filter((row) => row.regionId === selectedRegion.id) : []),
+    () => (selectedRegion ? places.filter((row) => catalogPlaceHasRegion(row, selectedRegion.id)) : []),
     [places, selectedRegion],
   );
   const parentPlaces = useMemo(() => {
@@ -189,8 +198,10 @@ export function DatasetRegionsPanel({
 
   const handleConnectPlace = async () => {
     if (!selectedRegion || !connectPlaceId) return;
+    const place = places.find((row) => row.id === connectPlaceId);
+    const nextIds = [...catalogPlaceRegionIds(place ?? {}), selectedRegion.id];
     await updatePlace({
-      variables: { id: connectPlaceId, input: { regionId: selectedRegion.id } },
+      variables: { id: connectPlaceId, input: { regionIds: [...new Set(nextIds)] } },
     });
     setConnectOpen(false);
     setConnectPlaceId('');
@@ -199,7 +210,7 @@ export function DatasetRegionsPanel({
   const selectRegion = (id: string) => {
     setSelectedRegionId(id);
     const selected = places.find((row) => row.id === selectedPlaceId);
-    if (selected && selected.regionId !== id) onSelectPlace(null);
+    if (selected && !catalogPlaceHasRegion(selected, id)) onSelectPlace(null);
   };
 
   const resetFilters = () => {
@@ -210,7 +221,9 @@ export function DatasetRegionsPanel({
   };
 
   const saving = createState.loading || updateState.loading;
-  const connectablePlaces = places.filter((row) => row.regionId !== selectedRegionId);
+  const connectablePlaces = places.filter(
+    (row) => selectedRegionId && !catalogPlaceHasRegion(row, selectedRegionId),
+  );
 
   return (
     <div className="grid gap-4">
@@ -305,7 +318,7 @@ export function DatasetRegionsPanel({
               </thead>
               <tbody>
                 {filteredRegions.map((row) => {
-                  const count = places.filter((place) => place.regionId === row.id).length;
+                  const count = places.filter((place) => catalogPlaceHasRegion(place, row.id)).length;
                   return (
                     <tr
                       key={row.id}
@@ -465,7 +478,9 @@ export function DatasetRegionsPanel({
                     </button>
                   ))}
                   {displayedPlaces.length === 0 ? <p className="text-sm text-slate-400">연결된 장소가 없습니다.</p> : null}
-                  <p className="text-[11px] text-[#9A93C2]">직접 지정 / 상위 장소 상속은 장소의 권역 ID로 구분합니다. 좌표는 바꾸지 않습니다.</p>
+                  <p className="text-[11px] text-[#9A93C2]">
+                    경로상 지점은 권역을 여러 개 붙일 수 있습니다. 연결은 기존 권역을 유지한 채 추가합니다.
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     <DatasetButton type="button" variant="outline" className="h-9 px-3 text-xs" onClick={() => setConnectOpen(true)}>
                       기존 장소 연결
@@ -570,7 +585,7 @@ export function DatasetRegionsPanel({
             <div className={`w-full max-w-md p-6 shadow-2xl ${datasetTheme.card}`} role="dialog">
               <h2 className="text-lg font-semibold text-slate-900">기존 장소 연결</h2>
               <p className="mt-1 text-sm text-slate-500">
-                {selectedRegion.name} 권역 ID만 저장합니다. 장소 좌표·상위 장소는 복사하거나 덮어쓰지 않습니다.
+                {selectedRegion.name} 권역을 추가합니다. 기존 권역은 유지하고, 좌표·상위 장소는 바꾸지 않습니다.
               </p>
               <div className="mt-4">
                 <DatasetField label="장소">

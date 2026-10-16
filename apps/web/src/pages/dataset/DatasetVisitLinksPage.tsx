@@ -12,7 +12,13 @@ import {
   type CatalogVisitLinkAnalyzeResult,
   type CatalogVisitLinkRow,
 } from '../../features/dataset/hooks';
-import { DatasetPageFooter, visitLinkReviewReasonLabel, VISIT_LINK_STATUS_LABEL, type CatalogVisitLinkStatus } from '../../features/dataset/labels';
+import {
+  DatasetPageFooter,
+  catalogPlaceHasRegion,
+  visitLinkReviewReasonLabel,
+  VISIT_LINK_STATUS_LABEL,
+  type CatalogVisitLinkStatus,
+} from '../../features/dataset/labels';
 import { datasetTheme } from '../../features/dataset/theme';
 import {
   DatasetButton,
@@ -126,7 +132,7 @@ export function DatasetVisitLinksPage(): JSX.Element {
           place.placeType !== 'AREA' &&
           place.latitude != null &&
           place.longitude != null &&
-          (!resolvedRegionId || place.regionId === resolvedRegionId),
+          (!resolvedRegionId || catalogPlaceHasRegion(place, resolvedRegionId)),
       ),
     [places, resolvedRegionId],
   );
