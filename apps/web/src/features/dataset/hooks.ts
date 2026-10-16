@@ -28,6 +28,7 @@ export interface CatalogPlaceRow {
   code: string;
   name: string;
   placeType: CatalogPlaceType;
+  otherTypeLabel: string | null;
   country: string;
   regionId: string | null;
   region: { id: string; name: string } | null;
@@ -225,6 +226,7 @@ const PLACES_QUERY = gql`
       code
       name
       placeType
+      otherTypeLabel
       country
       regionId
       region {

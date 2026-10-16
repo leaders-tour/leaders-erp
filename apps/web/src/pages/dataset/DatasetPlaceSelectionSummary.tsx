@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
-import { PLACE_TYPE_LABEL, STATUS_LABEL, VISIT_JUDGMENT_TYPE_LABEL } from '../../features/dataset/labels';
+import { STATUS_LABEL, VISIT_JUDGMENT_TYPE_LABEL, catalogPlaceTypeLabel } from '../../features/dataset/labels';
 import { DatasetButton, DatasetCard, StubButton } from '../../features/dataset/ui';
 
 interface DatasetPlaceSelectionSummaryProps {
@@ -70,7 +70,7 @@ export function DatasetPlaceSelectionSummary({
                 {place.name} · {place.code}
               </h3>
               <span className="rounded-full bg-[#EDE9FE] px-2.5 py-0.5 text-xs font-medium text-[#5B4BD6] ring-1 ring-inset ring-[#D9D2F8]">
-                {isLodging ? `숙소 ${lodgingCode}` : `${PLACE_TYPE_LABEL[place.placeType]} ${place.code}`}
+                {isLodging ? `숙소 ${lodgingCode}` : `${catalogPlaceTypeLabel(place.placeType, place.otherTypeLabel)} ${place.code}`}
               </span>
             </div>
             <p className="text-sm text-slate-600">

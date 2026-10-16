@@ -45,6 +45,7 @@ export interface ProjectVisitImportSuggestion {
   visitMinStayMinutes: number | null;
   name: string;
   placeType: CatalogPlaceType;
+  otherTypeLabel: string | null;
   parentPlaceId: string | null;
   parentDistanceM: number | null;
   regionId: string | null;
@@ -196,6 +197,7 @@ export function suggestImportRow(
     visitMinStayMinutes: draft.visitMinStayMinutes,
     name: draft.name && !looksLikeAdminName(draft.name) ? draft.name : reuse?.place.name || '',
     placeType: draft.placeType,
+    otherTypeLabel: null,
     parentPlaceId: area?.place.id ?? null,
     parentDistanceM: area ? Math.round(area.distanceM) : null,
     regionId: resolveCatalogRegionId({
@@ -224,6 +226,7 @@ export function toImportRow(suggestion: ProjectVisitImportSuggestion): ProjectVi
 export function isImportRowReady(row: ProjectVisitImportRow): boolean {
   if (!row.enabled) return false;
   if (row.reuseEnabled && row.reusePlaceId) return true;
+  if (row.placeType === 'OTHER' && !row.otherTypeLabel?.trim()) return false;
   return Boolean(row.name.trim());
 }
 
@@ -235,6 +238,7 @@ export function buildPlaceCreateInput(row: ProjectVisitImportRow) {
   return {
     name: row.name.trim(),
     placeType: row.placeType,
+    otherTypeLabel: row.placeType === 'OTHER' ? row.otherTypeLabel?.trim() || null : null,
     country: row.country?.trim() || null,
     regionId: row.regionId || null,
     parentPlaceId: row.placeType === 'AREA' ? null : row.parentPlaceId || null,

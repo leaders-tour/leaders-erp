@@ -5,7 +5,7 @@ import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import {
   DatasetPageFooter,
   DatasetStubNotice,
-  PLACE_TYPE_LABEL,
+  catalogPlaceTypeLabel,
   StatusBadge,
   TypePill,
 } from '../../features/dataset/labels';
@@ -126,12 +126,13 @@ export function DatasetPlaceDetailPanel({
   const primaryGate = relatedGates[0] ?? null;
   const regionPath = [place.country, place.region?.name, place.parentPlace?.name].filter(Boolean).join(' / ');
   const lodgingCode = lodgingDisplayCode(place);
-  const lodgingTypeLabel = LODGING_TYPE_UI[place.name] ?? (isLodging ? '숙소' : PLACE_TYPE_LABEL[place.placeType]);
+  const typeLabel = catalogPlaceTypeLabel(place.placeType, place.otherTypeLabel);
+  const lodgingTypeLabel = LODGING_TYPE_UI[place.name] ?? (isLodging ? '숙소' : typeLabel);
 
-  const titleKind = isLodging ? '숙소 상세' : `${PLACE_TYPE_LABEL[place.placeType]} 상세`;
+  const titleKind = isLodging ? '숙소 상세' : `${typeLabel} 상세`;
   const metaLine = isLodging
     ? `숙소 ${lodgingCode} · 대표 장소 ${place.code}${regionPath ? ` · ${regionPath}` : ''}`
-    : `${PLACE_TYPE_LABEL[place.placeType]} ${place.code}${regionPath ? ` · ${regionPath}` : ''}`;
+    : `${typeLabel} ${place.code}${regionPath ? ` · ${regionPath}` : ''}`;
 
   const notifyStub = (message: string) => {
     setStubMessage(message);
@@ -161,7 +162,7 @@ export function DatasetPlaceDetailPanel({
                       {place.lodgingLevel.replace('LV.', 'LV')}
                     </span>
                   ) : (
-                    <TypePill label={PLACE_TYPE_LABEL[place.placeType]} tone="violet" />
+                    <TypePill label={typeLabel} tone="violet" />
                   )}
                   <StatusBadge status={place.status} />
                 </div>
@@ -414,7 +415,7 @@ export function DatasetPlaceDetailPanel({
             {tab === 'history' ? <StubTabBody label="변경이력" /> : null}
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-              <DatasetPageFooter screenId={isLodging ? 'T01-02 · 숙소 상세' : `T01-02 · ${PLACE_TYPE_LABEL[place.placeType]} 상세`} />
+              <DatasetPageFooter screenId={isLodging ? 'T01-02 · 숙소 상세' : `T01-02 · ${typeLabel} 상세`} />
               <DatasetButton type="button" variant="primary" onClick={onClose}>
                 목록으로 돌아가기
               </DatasetButton>

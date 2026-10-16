@@ -22,9 +22,11 @@ import {
 } from '../../features/guide/hooks';
 import {
   DatasetPageFooter,
+  CATALOG_PLACE_TYPES,
   PLACE_TYPE_LABEL,
   VISIT_JUDGMENT_TYPE_LABEL,
   canLinkAccommodation,
+  catalogPlaceTypeLabel,
   defaultVisitJudgmentType,
   nearbyPlaceKind,
   type CatalogPlaceType,
@@ -50,7 +52,7 @@ function normalizePlaceSearch(value: string): string {
 }
 
 function catalogPlaceSearchHaystack(row: CatalogPlaceRow): string {
-  return [row.name, row.displayName, row.code, row.region?.name, row.parentPlace?.name, row.country]
+  return [row.name, row.displayName, row.code, row.otherTypeLabel, row.region?.name, row.parentPlace?.name, row.country]
     .filter(Boolean)
     .join(' ');
 }
@@ -72,7 +74,7 @@ function distanceM(from: { lat: number; lng: number }, to: { lat: number; lng: n
   return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
+const PLACE_TYPES = CATALOG_PLACE_TYPES;
 const DEFAULT_VISIT_RADIUS_M = 50;
 const DEFAULT_VISIT_MIN_STAY_MINUTES = 3;
 const LODGING_ROLES = [
@@ -218,6 +220,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const initialType =
     visitDraft?.placeType ?? (requestedType && PLACE_TYPES.includes(requestedType) ? requestedType : 'LODGING');
   const [placeType, setPlaceType] = useState<CatalogPlaceType>(initialType);
+  const [otherTypeLabel, setOtherTypeLabel] = useState('');
   const [status, setStatus] = useState<CatalogUsageStatus>('ACTIVE');
   const [parentPlaceId, setParentPlaceId] = useState(initialType === 'AREA' ? '' : searchParams.get('parentId') ?? '');
   const [country, setCountry] = useState('몽골');
@@ -309,6 +312,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const isArea = placeType === 'AREA';
   const isLodging = placeType === 'LODGING';
   const isRestaurant = placeType === 'RESTAURANT';
+  const isOther = placeType === 'OTHER';
   const showLodgingSection = canLinkAccommodation(placeType);
   const showRelatedPlaces = showLodgingSection && Boolean(accommodationId);
   let sectionNo = 1;
@@ -352,6 +356,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setName(editingPlace.name);
     setDisplayName(editingPlace.displayName ?? '');
     setPlaceType(editingPlace.placeType);
+    setOtherTypeLabel(editingPlace.otherTypeLabel ?? '');
     setStatus(editingPlace.status);
     setParentPlaceId(editingPlace.placeType === 'AREA' ? '' : editingPlace.parentPlaceId ?? '');
     setCountry(editingPlace.country);
@@ -464,7 +469,8 @@ export function DatasetPlaceFormPage(): JSX.Element {
   })();
 
   const saving = createState.loading || updateState.loading;
-  const canSave = Boolean(name.trim()) && !coordPairError && !judgmentError;
+  const otherTypeError = isOther && !otherTypeLabel.trim() ? '기타 유형 이름을 입력하세요.' : null;
+  const canSave = Boolean(name.trim()) && !coordPairError && !judgmentError && !otherTypeError;
 
   const applyCoords = (
     lat: number,
@@ -548,6 +554,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setRadiusInput(String(draft.visitRadiusM));
     setStayMinutesInput(draft.visitMinStayMinutes != null ? String(draft.visitMinStayMinutes) : '');
     setPlaceType(draft.placeType);
+    if (draft.placeType !== 'OTHER') setOtherTypeLabel('');
     if (draft.placeType === 'AREA') setParentPlaceId('');
     if (!canLinkAccommodation(draft.placeType)) setAccommodationId('');
     if (draft.name && !name.trim() && !looksLikeAdminName(draft.name)) setName(draft.name);
@@ -608,6 +615,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
     setNearbyError(null);
     setFormError(null);
     setVisitJudgmentType(defaultVisitJudgmentType(placeType));
+    if (placeType !== 'OTHER') setOtherTypeLabel('');
     setRadiusInput(String(DEFAULT_VISIT_RADIUS_M));
     setStayMinutesInput(String(DEFAULT_VISIT_MIN_STAY_MINUTES));
   };
@@ -615,6 +623,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
   const buildInput = () => ({
     name: name.trim(),
     placeType,
+    otherTypeLabel: isOther ? otherTypeLabel.trim() || null : null,
     country: country.trim() || '몽골',
     regionId: regionId || null,
     parentPlaceId: isArea ? null : parentPlaceId || null,
@@ -630,7 +639,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
 
   const handleSave = async (continueCreating: boolean) => {
     if (!canSave) {
-      setFormError(coordPairError ?? judgmentError ?? '장소명을 입력하세요.');
+      setFormError(coordPairError ?? judgmentError ?? otherTypeError ?? '장소명을 입력하세요.');
       return;
     }
     setFormError(null);
@@ -658,6 +667,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
         name !== editingPlace.name ||
         displayName !== (editingPlace.displayName ?? '') ||
         placeType !== editingPlace.placeType ||
+        otherTypeLabel !== (editingPlace.otherTypeLabel ?? '') ||
         status !== editingPlace.status ||
         parentPlaceId !== (editingPlace.parentPlaceId ?? '') ||
         country !== editingPlace.country ||
@@ -764,6 +774,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                         const next = event.target.value as CatalogPlaceType;
                         setPlaceType(next);
                         setVisitJudgmentType(defaultVisitJudgmentType(next));
+                        if (next !== 'OTHER') setOtherTypeLabel('');
                         if (next === 'AREA') setParentPlaceId('');
                         if (!canLinkAccommodation(next)) setAccommodationId('');
                       }}
@@ -775,6 +786,17 @@ export function DatasetPlaceFormPage(): JSX.Element {
                       ))}
                     </select>
                   </DatasetField>
+                  {isOther ? (
+                    <DatasetField label="기타 유형">
+                      <Input
+                        className={datasetControlClass}
+                        value={otherTypeLabel}
+                        onChange={(event) => setOtherTypeLabel(event.target.value)}
+                        placeholder="예: 약국, 은행"
+                      />
+                      {otherTypeError ? <p className="mt-1 text-xs text-rose-600">{otherTypeError}</p> : null}
+                    </DatasetField>
+                  ) : null}
                   <DatasetField label="사용 상태">
                     <select className={datasetControlClass} value={status} onChange={(event) => setStatus(event.target.value as CatalogUsageStatus)}>
                       <option value="ACTIVE">사용 중</option>
@@ -979,7 +1001,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                         <li key={row.id} className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2">
                           <div>
                             <p className="text-sm font-medium text-slate-800">{row.name}</p>
-                            <p className="text-xs text-[#9A93C2]">{PLACE_TYPE_LABEL[row.placeType]}</p>
+                            <p className="text-xs text-[#9A93C2]">{catalogPlaceTypeLabel(row.placeType, row.otherTypeLabel)}</p>
                           </div>
                           <span className="text-xs text-[#8B83B8]">{row.code}</span>
                         </li>
@@ -1138,7 +1160,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                                 disabled={!hasCoords}
                                 onClick={() => applyExistingCatalogPlace(row)}
                               >
-                                {row.name} · {row.code} · {PLACE_TYPE_LABEL[row.placeType]}
+                                {row.name} · {row.code} · {catalogPlaceTypeLabel(row.placeType, row.otherTypeLabel)}
                                 <span className="mt-0.5 block text-[#9A93C2]">
                                   {[row.region?.name, row.parentPlace?.name].filter(Boolean).join(' / ') || row.country}
                                   {hasCoords ? ' · 이 위치 사용' : ' · 좌표 없음'}
@@ -1296,7 +1318,7 @@ export function DatasetPlaceFormPage(): JSX.Element {
                   <div className="flex justify-between gap-3">
                     <dt className="text-slate-500">장소명 · 유형</dt>
                     <dd className="text-right font-medium text-slate-800">
-                      {name.trim() || '미입력'} · {PLACE_TYPE_LABEL[placeType]}
+                      {name.trim() || '미입력'} · {catalogPlaceTypeLabel(placeType, otherTypeLabel)}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-3">

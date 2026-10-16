@@ -4,6 +4,10 @@ enum CatalogPlaceType {
   EXPERIENCE
   MEETING
   GATE
+  MART
+  HOSPITAL
+  AIRPORT
+  OTHER
   AREA
 }
 
@@ -91,6 +95,7 @@ type CatalogPlace {
   code: String!
   name: String!
   placeType: CatalogPlaceType!
+  otherTypeLabel: String
   country: String!
   regionId: ID
   region: CatalogRegion
@@ -376,6 +381,7 @@ input CatalogRegionUpdateInput {
 input CatalogPlaceCreateInput {
   name: String!
   placeType: CatalogPlaceType!
+  otherTypeLabel: String
   country: String
   regionId: ID
   parentPlaceId: ID
@@ -393,6 +399,7 @@ input CatalogPlaceCreateInput {
 input CatalogPlaceUpdateInput {
   name: String
   placeType: CatalogPlaceType
+  otherTypeLabel: String
   country: String
   regionId: ID
   parentPlaceId: ID

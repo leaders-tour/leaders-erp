@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   DatasetPageFooter,
   DatasetStubNotice,
+  CATALOG_PLACE_TYPES,
   PLACE_TYPE_LABEL,
   STATUS_LABEL,
   StatusBadge,
+  catalogPlaceTypeLabel,
   type CatalogPlaceType,
 } from '../../features/dataset/labels';
 import {
@@ -39,7 +41,7 @@ import { DatasetRegionsPanel } from './DatasetRegionsPanel';
 type InnerTab = 'regions' | 'places' | 'routes';
 type CreateKind = 'route';
 
-const LIST_PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
+const LIST_PLACE_TYPES = CATALOG_PLACE_TYPES;
 
 const CREATE_LABEL: Record<CreateKind, string> = {
   route: '경로 등록',
@@ -124,7 +126,8 @@ export function DatasetPlacesPage(): JSX.Element {
       return (
         row.name.toLowerCase().includes(keyword) ||
         row.code.toLowerCase().includes(keyword) ||
-        (row.parentPlace?.name.toLowerCase().includes(keyword) ?? false)
+        (row.parentPlace?.name.toLowerCase().includes(keyword) ?? false) ||
+        (row.otherTypeLabel?.toLowerCase().includes(keyword) ?? false)
       );
     });
   }, [country, listPlaces, parentPlaceId, placeType, regionName, search, status]);
@@ -497,7 +500,7 @@ export function DatasetPlacesPage(): JSX.Element {
                     {filteredPlaces.map((row) => {
                       const meta = [
                         row.code,
-                        PLACE_TYPE_LABEL[row.placeType],
+                        catalogPlaceTypeLabel(row.placeType, row.otherTypeLabel),
                         [row.country, row.region?.name].filter(Boolean).join(' / ') || null,
                         row.parentPlace?.name,
                         row.latitude != null && row.longitude != null ? '좌표 등록' : '좌표 미등록',

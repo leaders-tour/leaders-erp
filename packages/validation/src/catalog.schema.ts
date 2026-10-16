@@ -1,6 +1,17 @@
 import { z } from 'zod';
 
-const catalogPlaceTypeSchema = z.enum(['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA']);
+const catalogPlaceTypeSchema = z.enum([
+  'LODGING',
+  'RESTAURANT',
+  'EXPERIENCE',
+  'MEETING',
+  'GATE',
+  'MART',
+  'HOSPITAL',
+  'AIRPORT',
+  'OTHER',
+  'AREA',
+]);
 const catalogVisitJudgmentTypeSchema = z.enum(['PASS', 'STAY']);
 const catalogUsageStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
 const catalogElementCompositionSchema = z.enum(['SINGLE', 'SET']);
@@ -23,6 +34,7 @@ export const catalogRegionUpdateSchema = catalogRegionCreateSchema.partial();
 const catalogPlaceFields = z.object({
   name: z.string().min(1).max(120),
   placeType: catalogPlaceTypeSchema,
+  otherTypeLabel: z.string().trim().max(40).nullable().optional(),
   country: z.string().min(1).max(60).optional(),
   regionId: optionalId,
   parentPlaceId: optionalId,
@@ -43,7 +55,7 @@ function canLinkAccommodation(placeType: string): boolean {
 
 function lodgingOnlyAccommodation(
   data: {
-    placeType?: 'LODGING' | 'RESTAURANT' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+    placeType?: z.infer<typeof catalogPlaceTypeSchema>;
     accommodationId?: string | null;
   },
   ctx: z.RefinementCtx,
@@ -57,6 +69,33 @@ function lodgingOnlyAccommodation(
   }
 }
 
+function requireOtherTypeLabel(
+  data: {
+    placeType?: z.infer<typeof catalogPlaceTypeSchema>;
+    otherTypeLabel?: string | null;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (data.placeType === 'OTHER' && !data.otherTypeLabel?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['otherTypeLabel'],
+      message: 'otherTypeLabel is required when placeType is OTHER',
+    });
+  }
+}
+
+function normalizeOtherTypeLabel<
+  T extends { placeType?: z.infer<typeof catalogPlaceTypeSchema>; otherTypeLabel?: string | null },
+>(data: T): T {
+  if (data.placeType != null && data.placeType !== 'OTHER') {
+    return { ...data, otherTypeLabel: null };
+  }
+  if (data.otherTypeLabel === undefined) return data;
+  const trimmed = data.otherTypeLabel?.trim() ?? '';
+  return { ...data, otherTypeLabel: trimmed || null };
+}
+
 function stripStayMinutesForPass<T extends { visitJudgmentType?: 'PASS' | 'STAY' | null; visitMinStayMinutes?: number | null }>(
   data: T,
 ): T {
@@ -66,11 +105,15 @@ function stripStayMinutesForPass<T extends { visitJudgmentType?: 'PASS' | 'STAY'
 
 export const catalogPlaceCreateSchema = catalogPlaceFields
   .superRefine(lodgingOnlyAccommodation)
+  .superRefine(requireOtherTypeLabel)
+  .transform(normalizeOtherTypeLabel)
   .transform(stripStayMinutesForPass);
 
 export const catalogPlaceUpdateSchema = catalogPlaceFields
   .partial()
   .superRefine(lodgingOnlyAccommodation)
+  .superRefine(requireOtherTypeLabel)
+  .transform(normalizeOtherTypeLabel)
   .transform(stripStayMinutesForPass);
 
 export const catalogRouteCreateSchema = z.object({

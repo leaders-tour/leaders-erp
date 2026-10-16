@@ -21,6 +21,10 @@ const PIN_COLOR: Record<CatalogPlaceType, string> = {
   EXPERIENCE: 'bg-sky-500',
   MEETING: 'bg-amber-500',
   GATE: 'bg-violet-500',
+  MART: 'bg-pink-500',
+  HOSPITAL: 'bg-rose-600',
+  AIRPORT: 'bg-indigo-500',
+  OTHER: 'bg-stone-500',
   AREA: 'bg-slate-500',
 };
 

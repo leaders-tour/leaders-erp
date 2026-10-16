@@ -54,6 +54,32 @@ describe('catalog place visit judgment', () => {
     expect(result.success).toBe(false);
   });
 
+  it('requires a label when the place type is other', () => {
+    const missing = catalogPlaceCreateSchema.safeParse({
+      name: '우체국',
+      placeType: 'OTHER',
+    });
+    expect(missing.success).toBe(false);
+
+    const ok = catalogPlaceCreateSchema.safeParse({
+      name: '우체국',
+      placeType: 'OTHER',
+      otherTypeLabel: '우체국',
+    });
+    expect(ok.success).toBe(true);
+    if (ok.success) expect(ok.data.otherTypeLabel).toBe('우체국');
+  });
+
+  it('clears other labels when the place type is not other', () => {
+    const result = catalogPlaceCreateSchema.safeParse({
+      name: 'CU',
+      placeType: 'MART',
+      otherTypeLabel: '편의점',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.otherTypeLabel).toBeNull();
+  });
+
   it('rejects a zero visit radius', () => {
     const result = catalogPlaceUpdateSchema.safeParse({
       visitRadiusM: 0,

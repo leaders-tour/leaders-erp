@@ -66,7 +66,17 @@ import { getSupabaseAdminClient } from '../../lib/supabase';
 import { CatalogRepository } from './catalog.repository';
 
 type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
-type CatalogPlaceType = 'LODGING' | 'RESTAURANT' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+type CatalogPlaceType =
+  | 'LODGING'
+  | 'RESTAURANT'
+  | 'EXPERIENCE'
+  | 'MEETING'
+  | 'GATE'
+  | 'MART'
+  | 'HOSPITAL'
+  | 'AIRPORT'
+  | 'OTHER'
+  | 'AREA';
 
 const PLACE_VISITS_PAGE_SIZE = 1000;
 const PLACE_VISIT_PROJECT_CHUNK = 50;

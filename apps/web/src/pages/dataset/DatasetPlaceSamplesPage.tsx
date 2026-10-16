@@ -16,8 +16,10 @@ import {
 } from '../../features/dataset/hooks';
 import {
   DatasetPageFooter,
+  CATALOG_PLACE_TYPES,
   PLACE_TYPE_LABEL,
   VISIT_JUDGMENT_TYPE_LABEL,
+  catalogPlaceTypeLabel,
   nearbyPlaceKind,
   type CatalogPlaceType,
 } from '../../features/dataset/labels';
@@ -52,7 +54,7 @@ import {
   type SampleMapPlace,
 } from './DatasetPlaceSamplesMap';
 
-const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
+const PLACE_TYPES = CATALOG_PLACE_TYPES;
 const MAX_PROJECTS = 200;
 const REGION_CHIP_CLASS: Record<VisitRegionFilter, { idle: string; active: string }> = {
   GOBI: {
@@ -89,6 +91,7 @@ type MinProjects = 1 | 2 | 3;
 
 interface SampleClusterRow extends SampleCluster {
   enabled: boolean;
+  otherTypeLabel: string;
 }
 
 interface ApplySummary {
@@ -223,6 +226,7 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
     ).map((cluster) => ({
       ...cluster,
       enabled: cluster.kind === 'new_place',
+      otherTypeLabel: '',
     }));
     setRows(next);
     setSelectedClusterId(next[0]?.id ?? null);
@@ -386,6 +390,7 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
               input: {
                 name: row.name.trim(),
                 placeType: row.placeType,
+                otherTypeLabel: row.placeType === 'OTHER' ? row.otherTypeLabel.trim() || null : null,
                 country: row.country?.trim() || '몽골',
                 regionId: row.regionId || null,
                 parentPlaceId: row.placeType === 'AREA' ? null : row.parentPlaceId || null,
@@ -723,26 +728,37 @@ export function DatasetPlaceSamplesPage(): JSX.Element {
                             ) : (
                               <Td>
                                 {row.kind === 'new_place' ? (
-                                  <select
-                                    className={compactSelectClass()}
-                                    value={row.placeType}
-                                    onChange={(event) => {
-                                      const placeType = event.target.value as CatalogPlaceType;
-                                      updateRow(
-                                        row.id,
-                                        placeType === 'AREA' ? { placeType, parentPlaceId: null } : { placeType },
-                                      );
-                                    }}
-                                  >
-                                    {PLACE_TYPES.map((type) => (
-                                      <option key={type} value={type}>
-                                        {PLACE_TYPE_LABEL[type]}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  <div className="grid gap-1">
+                                    <select
+                                      className={compactSelectClass()}
+                                      value={row.placeType}
+                                      onChange={(event) => {
+                                        const placeType = event.target.value as CatalogPlaceType;
+                                        updateRow(row.id, {
+                                          placeType,
+                                          parentPlaceId: placeType === 'AREA' ? null : row.parentPlaceId,
+                                          otherTypeLabel: placeType === 'OTHER' ? row.otherTypeLabel : '',
+                                        });
+                                      }}
+                                    >
+                                      {PLACE_TYPES.map((type) => (
+                                        <option key={type} value={type}>
+                                          {PLACE_TYPE_LABEL[type]}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    {row.placeType === 'OTHER' ? (
+                                      <Input
+                                        className={`${datasetControlClass} h-8 min-w-[7rem] px-2 text-xs`}
+                                        value={row.otherTypeLabel}
+                                        onChange={(event) => updateRow(row.id, { otherTypeLabel: event.target.value })}
+                                        placeholder="유형 이름"
+                                      />
+                                    ) : null}
+                                  </div>
                                 ) : (
                                   <span className="text-xs text-slate-600">
-                                    {PLACE_TYPE_LABEL[row.placeType]}
+                                    {catalogPlaceTypeLabel(row.placeType, row.otherTypeLabel)}
                                     {row.nearbyPlaces.length > 1
                                       ? ` · ${row.nearbyPlaces.map((place) => place.name).join(', ')}`
                                       : ''}

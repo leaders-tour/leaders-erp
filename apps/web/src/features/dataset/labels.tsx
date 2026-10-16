@@ -1,6 +1,16 @@
 import { datasetTheme } from './theme';
 
-export type CatalogPlaceType = 'LODGING' | 'RESTAURANT' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+export type CatalogPlaceType =
+  | 'LODGING'
+  | 'RESTAURANT'
+  | 'EXPERIENCE'
+  | 'MEETING'
+  | 'GATE'
+  | 'MART'
+  | 'HOSPITAL'
+  | 'AIRPORT'
+  | 'OTHER'
+  | 'AREA';
 export type CatalogVisitJudgmentType = 'PASS' | 'STAY';
 export type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
 export type CatalogElementComposition = 'SINGLE' | 'SET';
@@ -18,8 +28,36 @@ export const PLACE_TYPE_LABEL: Record<CatalogPlaceType, string> = {
   EXPERIENCE: '체험장',
   MEETING: '미팅 장소',
   GATE: '출입 지점',
+  MART: '마트',
+  HOSPITAL: '병원',
+  AIRPORT: '공항',
+  OTHER: '기타',
   AREA: '목적지',
 };
+
+export const CATALOG_PLACE_TYPES: CatalogPlaceType[] = [
+  'LODGING',
+  'RESTAURANT',
+  'EXPERIENCE',
+  'MEETING',
+  'GATE',
+  'MART',
+  'HOSPITAL',
+  'AIRPORT',
+  'OTHER',
+  'AREA',
+];
+
+export function catalogPlaceTypeLabel(
+  placeType: CatalogPlaceType,
+  otherTypeLabel?: string | null,
+): string {
+  if (placeType === 'OTHER') {
+    const custom = otherTypeLabel?.trim();
+    return custom ? `기타 · ${custom}` : '기타';
+  }
+  return PLACE_TYPE_LABEL[placeType];
+}
 
 export function canLinkAccommodation(placeType: CatalogPlaceType): boolean {
   return placeType === 'LODGING' || placeType === 'RESTAURANT';

@@ -12,6 +12,7 @@ import {
 } from '../../features/dataset/hooks';
 import {
   DatasetPageFooter,
+  CATALOG_PLACE_TYPES,
   PLACE_TYPE_LABEL,
   VISIT_JUDGMENT_TYPE_LABEL,
   canLinkAccommodation,
@@ -53,7 +54,7 @@ import {
   type ImportMapVisitPin,
 } from './DatasetProjectVisitImportMap';
 
-const PLACE_TYPES: CatalogPlaceType[] = ['LODGING', 'RESTAURANT', 'EXPERIENCE', 'MEETING', 'GATE', 'AREA'];
+const PLACE_TYPES = CATALOG_PLACE_TYPES;
 const EMPTY_LIVE_LOCATIONS: GuideLiveLocationRow[] = [];
 const EMPTY_CATALOG_PLACES: CatalogPlaceRow[] = [];
 
@@ -267,6 +268,7 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
       : null;
     updateRow(row.visitId, {
       placeType,
+      otherTypeLabel: placeType === 'OTHER' ? row.otherTypeLabel : null,
       parentPlaceId: placeType === 'AREA' ? null : row.parentPlaceId,
       accommodationId: lodging?.place.accommodationId ?? null,
       accommodationDistanceM: lodging ? Math.round(lodging.distanceM) : null,
@@ -579,17 +581,27 @@ export function DatasetProjectVisitImportPage(): JSX.Element {
                             />
                           </Td>
                           <Td>
-                            <select
-                              className={compactSelectClass()}
-                              value={row.placeType}
-                              onChange={(event) => changePlaceType(row, event.target.value as CatalogPlaceType)}
-                            >
-                              {PLACE_TYPES.filter((type) => type !== 'AREA').map((type) => (
-                                <option key={type} value={type}>
-                                  {PLACE_TYPE_LABEL[type]}
-                                </option>
-                              ))}
-                            </select>
+                            <div className="grid gap-1">
+                              <select
+                                className={compactSelectClass()}
+                                value={row.placeType}
+                                onChange={(event) => changePlaceType(row, event.target.value as CatalogPlaceType)}
+                              >
+                                {PLACE_TYPES.filter((type) => type !== 'AREA').map((type) => (
+                                  <option key={type} value={type}>
+                                    {PLACE_TYPE_LABEL[type]}
+                                  </option>
+                                ))}
+                              </select>
+                              {row.placeType === 'OTHER' ? (
+                                <Input
+                                  className={`${datasetControlClass} h-8 min-w-[7rem] px-2 text-xs`}
+                                  value={row.otherTypeLabel ?? ''}
+                                  onChange={(event) => updateRow(row.visitId, { otherTypeLabel: event.target.value })}
+                                  placeholder="유형 이름"
+                                />
+                              ) : null}
+                            </div>
                           </Td>
                           <Td>
                             <select

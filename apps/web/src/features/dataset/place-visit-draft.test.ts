@@ -55,7 +55,7 @@ describe('visitToPlaceDraft', () => {
 
   it('maps meal and shopping pin types', () => {
     expect(visitToPlaceDraft(source({ pinType: 'meal' })).placeType).toBe('RESTAURANT');
-    expect(visitToPlaceDraft(source({ pinType: 'shopping' })).placeType).toBe('EXPERIENCE');
+    expect(visitToPlaceDraft(source({ pinType: 'shopping' })).placeType).toBe('MART');
   });
 });
 

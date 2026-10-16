@@ -20,7 +20,17 @@ import type {
 
 type PrismaLike = PrismaClient;
 type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
-type CatalogPlaceType = 'LODGING' | 'RESTAURANT' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+type CatalogPlaceType =
+  | 'LODGING'
+  | 'RESTAURANT'
+  | 'EXPERIENCE'
+  | 'MEETING'
+  | 'GATE'
+  | 'MART'
+  | 'HOSPITAL'
+  | 'AIRPORT'
+  | 'OTHER'
+  | 'AREA';
 type CatalogVisitLinkStatus = 'AUTO' | 'REVIEW' | 'UNLINKED' | 'MANUAL';
 type CatalogVisitLinkReviewReason = 'OVERLAP' | 'NONE';
 
@@ -219,6 +229,7 @@ export class CatalogRepository {
         code: nextCode('PL', count),
         name: data.name,
         placeType: data.placeType,
+        otherTypeLabel: data.placeType === 'OTHER' ? (data.otherTypeLabel ?? null) : null,
         country: data.country ?? '몽골',
         regionId: data.regionId ?? null,
         parentPlaceId: data.parentPlaceId ?? null,
@@ -243,6 +254,11 @@ export class CatalogRepository {
       data: {
         ...(data.name != null ? { name: data.name } : {}),
         ...(data.placeType != null ? { placeType: data.placeType } : {}),
+        ...(data.placeType != null && data.placeType !== 'OTHER'
+          ? { otherTypeLabel: null }
+          : data.otherTypeLabel !== undefined
+            ? { otherTypeLabel: data.otherTypeLabel }
+            : {}),
         ...(data.country != null ? { country: data.country } : {}),
         ...(data.regionId !== undefined ? { regionId: data.regionId } : {}),
         ...(data.parentPlaceId !== undefined ? { parentPlaceId: data.parentPlaceId } : {}),

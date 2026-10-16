@@ -2275,6 +2275,10 @@ enum CatalogPlaceType {
   EXPERIENCE
   MEETING
   GATE
+  MART
+  HOSPITAL
+  AIRPORT
+  OTHER
   AREA
 }
 
@@ -2352,6 +2356,7 @@ model CatalogPlace {
   code             String             @unique
   name             String
   placeType        CatalogPlaceType
+  otherTypeLabel   String?            @db.VarChar(40)
   country          String             @default("몽골")
   regionId         String?
   parentPlaceId    String?

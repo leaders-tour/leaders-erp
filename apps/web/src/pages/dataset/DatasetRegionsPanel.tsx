@@ -7,7 +7,7 @@ import {
   useUpdateCatalogPlace,
   useUpdateCatalogRegion,
 } from '../../features/dataset/hooks';
-import { PLACE_TYPE_LABEL, StatusBadge, type CatalogUsageStatus } from '../../features/dataset/labels';
+import { StatusBadge, catalogPlaceTypeLabel, type CatalogUsageStatus } from '../../features/dataset/labels';
 import { datasetTheme } from '../../features/dataset/theme';
 import { DatasetButton, DatasetCard, DatasetField, DatasetFilterBar, datasetControlClass } from '../../features/dataset/ui';
 import { DatasetPlaceMap } from './DatasetPlaceMap';
@@ -461,7 +461,7 @@ export function DatasetRegionsPanel({
                       className="text-left text-sm text-slate-700"
                       onClick={() => onSelectPlace(row.id)}
                     >
-                      {row.name} · {row.code} · {PLACE_TYPE_LABEL[row.placeType]}
+                      {row.name} · {row.code} · {catalogPlaceTypeLabel(row.placeType, row.otherTypeLabel)}
                     </button>
                   ))}
                   {displayedPlaces.length === 0 ? <p className="text-sm text-slate-400">연결된 장소가 없습니다.</p> : null}

@@ -2,7 +2,17 @@ import type { AppContext } from '../../context';
 import { CatalogService } from './catalog.service';
 
 type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
-type CatalogPlaceType = 'LODGING' | 'RESTAURANT' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
+type CatalogPlaceType =
+  | 'LODGING'
+  | 'RESTAURANT'
+  | 'EXPERIENCE'
+  | 'MEETING'
+  | 'GATE'
+  | 'MART'
+  | 'HOSPITAL'
+  | 'AIRPORT'
+  | 'OTHER'
+  | 'AREA';
 
 interface StatusArgs {
   status?: CatalogUsageStatus;
