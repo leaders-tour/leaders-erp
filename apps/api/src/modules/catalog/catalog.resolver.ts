@@ -62,6 +62,8 @@ export const catalogResolver = {
       new CatalogService(ctx.prisma).listPlaces(args.status, args.placeType),
     catalogRoutes: (_parent: unknown, args: StatusArgs, ctx: AppContext) =>
       new CatalogService(ctx.prisma).listRoutes(args.status),
+    catalogRoute: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).getRoute(args.id),
     catalogElements: (_parent: unknown, args: StatusArgs, ctx: AppContext) =>
       new CatalogService(ctx.prisma).listElements(args.status),
     catalogBlocks: (_parent: unknown, args: StatusArgs, ctx: AppContext) =>
@@ -131,6 +133,11 @@ export const catalogResolver = {
       new CatalogService(ctx.prisma).clearVisitLink(args.id),
     analyzeCatalogRouteObservations: (_parent: unknown, args: { input?: never }, ctx: AppContext) =>
       new CatalogService(ctx.prisma).analyzeRouteObservations(args.input ?? {}),
+    updateCatalogRouteObservation: (
+      _parent: unknown,
+      args: IdArgs & { input: never },
+      ctx: AppContext,
+    ) => new CatalogService(ctx.prisma).updateRouteObservation(args.id, args.input),
   },
   CatalogElement: {
     setItems: (parent: { setItems?: unknown[] }) => parent.setItems ?? [],
@@ -183,9 +190,13 @@ export const catalogResolver = {
   CatalogRoute: {
     observationCount: (parent: { observationCount?: number }) => parent.observationCount ?? 0,
     usableCount: (parent: { usableCount?: number }) => parent.usableCount ?? 0,
+    estimateMode: (parent: { estimateMode?: string | null }) => parent.estimateMode ?? 'AUTO',
+    bufferMinutes: (parent: { bufferMinutes?: number | null }) => parent.bufferMinutes ?? 0,
   },
   CatalogRouteObservation: {
     path: (parent: { path?: unknown }) => parseObservationPath(parent.path),
+    manualIncludeOverride: (parent: { manualIncludeOverride?: boolean | null }) =>
+      parent.manualIncludeOverride ?? false,
   },
 };
 

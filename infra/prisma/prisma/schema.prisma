@@ -2333,6 +2333,11 @@ enum CatalogRouteObservationHoldReason {
   NO_PATH
 }
 
+enum CatalogRouteEstimateMode {
+  AUTO
+  MANUAL
+}
+
 model CatalogRegion {
   id          String             @id @default(uuid(7))
   code        String             @unique
@@ -2439,16 +2444,18 @@ model CatalogVisitLink {
 }
 
 model CatalogRoute {
-  id                 String             @id @default(uuid(7))
-  code               String             @unique
+  id                 String                   @id @default(uuid(7))
+  code               String                   @unique
   name               String
   regionId           String?
   fromPlaceId        String
   toPlaceId          String
   averageDistanceKm  Float?
   averageTravelHours Float?
-  status             CatalogUsageStatus @default(ACTIVE)
-  sortOrder          Int                @default(0)
+  estimateMode       CatalogRouteEstimateMode @default(AUTO)
+  bufferMinutes      Int                      @default(0)
+  status             CatalogUsageStatus       @default(ACTIVE)
+  sortOrder          Int                      @default(0)
 
   region    CatalogRegion? @relation(fields: [regionId], references: [id], onDelete: SetNull)
   fromPlace CatalogPlace   @relation("CatalogRouteFrom", fields: [fromPlaceId], references: [id], onDelete: Cascade)
@@ -2475,10 +2482,11 @@ model CatalogRouteObservation {
   elapsedMs        Int
   distanceKm       Float?
   maxGapMinutes    Int
-  includeDistance  Boolean
-  includeElapsed   Boolean
-  status           CatalogRouteObservationStatus
-  holdReason       CatalogRouteObservationHoldReason?
+  includeDistance        Boolean
+  includeElapsed         Boolean
+  manualIncludeOverride  Boolean                            @default(false)
+  status                 CatalogRouteObservationStatus
+  holdReason             CatalogRouteObservationHoldReason?
   path             Json
   analyzedAt       DateTime
 

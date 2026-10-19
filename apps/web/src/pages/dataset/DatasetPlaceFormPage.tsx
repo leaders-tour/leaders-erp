@@ -1350,8 +1350,8 @@ export function DatasetPlaceFormPage(): JSX.Element {
                 {judgmentError ? <p className="text-xs text-rose-600">{judgmentError}</p> : null}
                 <p className="text-xs text-[#8B83B8]">
                   {isStayJudgment
-                    ? '체류형은 반경 안에서 머문 시간을 봅니다. 입력값은 이 장소에만 저장하며, 판정 엔진은 아직 연결하지 않았습니다.'
-                    : '통과형은 진입·이탈 흐름을 봅니다. 체류시간은 입력해도 이 유형에서는 저장·판정에 쓰지 않습니다.'}
+                    ? '체류형은 반경 안에서 머문 시간을 봅니다. 값은 이 장소에 저장하고, 실제 방문 부여는 방문 연결에서 합니다.'
+                    : '통과형은 진입·이탈 흐름을 봅니다. 체류시간은 이 유형에서 저장하지 않으며, 방문 부여는 방문 연결에서 합니다.'}
                 </p>
                 {latitude == null || longitude == null ? (
                   <p className="text-xs text-amber-700">좌표가 없으면 반경을 저장할 수는 있지만, 상위 좌표나 0,0으로 대신 판정하지 않습니다.</p>

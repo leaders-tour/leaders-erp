@@ -1,6 +1,6 @@
 import { Input, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   DatasetPageFooter,
   DatasetStubNotice,
@@ -10,6 +10,7 @@ import {
   StatusBadge,
   catalogPlaceRegionNames,
   catalogPlaceTypeLabel,
+  catalogRouteMeasureSummary,
   type CatalogPlaceType,
 } from '../../features/dataset/labels';
 import {
@@ -63,9 +64,15 @@ function parseOptionalNumber(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+function innerTabFromSearch(tab: string | null): InnerTab {
+  if (tab === 'regions' || tab === 'routes' || tab === 'places') return tab;
+  return 'places';
+}
+
 export function DatasetPlacesPage(): JSX.Element {
   const navigate = useNavigate();
-  const [innerTab, setInnerTab] = useState<InnerTab>('places');
+  const [searchParams] = useSearchParams();
+  const [innerTab, setInnerTab] = useState<InnerTab>(() => innerTabFromSearch(searchParams.get('tab')));
   const [search, setSearch] = useState('');
   const [country, setCountry] = useState('ALL');
   const [regionName, setRegionName] = useState('ALL');
@@ -256,7 +263,7 @@ export function DatasetPlacesPage(): JSX.Element {
   const handleCreateRoute = async () => {
     const name = routeNameInput.trim();
     if (!name || !routeFromPlaceId || !routeToPlaceId) return;
-    await createRoute({
+    const result = await createRoute({
       variables: {
         input: {
           name,
@@ -268,8 +275,10 @@ export function DatasetPlacesPage(): JSX.Element {
         },
       },
     });
+    const createdId = result.data?.createCatalogRoute?.id as string | undefined;
     resetCreateForms();
     closeCreate();
+    if (createdId) navigate(`/dataset/places/routes/${createdId}`);
   };
 
   const createLoading = createKind === 'route' ? createRouteState.loading : false;
@@ -599,7 +608,9 @@ export function DatasetPlacesPage(): JSX.Element {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">경로 목록</h2>
-                <p className="mt-1 text-xs text-[#8B83B8]">결과 {routes.length}</p>
+                <p className="mt-1 text-xs text-[#8B83B8]">
+                  결과 {routes.length} · 실측 표본이 있으면 중앙값을 쓰고, 없으면 수동 평균을 보여 줍니다.
+                </p>
               </div>
               <DatasetButton type="button" variant="primary" onClick={() => openCreate('route')}>
                 + 경로 등록
@@ -618,22 +629,30 @@ export function DatasetPlacesPage(): JSX.Element {
                   </tr>
                 </thead>
                 <tbody>
-                  {routes.map((row) => (
-                    <tr key={row.id} className="border-t border-slate-100 hover:bg-slate-50">
-                      <Td>{row.code}</Td>
-                      <Td>{row.name}</Td>
-                      <Td>{row.region?.name ?? '-'}</Td>
-                      <Td>
-                        {row.fromPlace.name} → {row.toPlace.name}
-                      </Td>
-                      <Td>
-                        {row.averageDistanceKm ?? '-'}km · {row.averageTravelHours ?? '-'}시간
-                      </Td>
-                      <Td>
-                        <StatusBadge status={row.status} />
-                      </Td>
-                    </tr>
-                  ))}
+                  {routes.map((row) => {
+                    const measure = catalogRouteMeasureSummary(row);
+                    return (
+                      <tr
+                        key={row.id}
+                        className="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
+                        onClick={() => navigate(`/dataset/places/routes/${row.id}`)}
+                      >
+                        <Td>{row.code}</Td>
+                        <Td>{row.name}</Td>
+                        <Td>{row.region?.name ?? '-'}</Td>
+                        <Td>
+                          {row.fromPlace.name} → {row.toPlace.name}
+                        </Td>
+                        <Td>
+                          <p>{measure.primary}</p>
+                          {measure.source ? <p className="text-xs text-[#8B83B8]">{measure.source}</p> : null}
+                        </Td>
+                        <Td>
+                          <StatusBadge status={row.status} />
+                        </Td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </Table>
             </div>
@@ -646,7 +665,9 @@ export function DatasetPlacesPage(): JSX.Element {
             <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
               <div className={`w-full max-w-md p-6 shadow-2xl ${datasetTheme.card}`} role="dialog">
                 <h2 className="text-lg font-semibold text-slate-900">{CREATE_LABEL[createKind]}</h2>
-                <p className="mt-1 text-sm text-slate-500">경로명과 출발/도착 장소를 저장합니다.</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  경로명과 출발/도착 장소를 저장합니다. 평균 거리·시간은 실측이 없을 때 쓰는 수동값입니다.
+                </p>
 
                 <div className="mt-4 grid gap-3">
                   <DatasetField label="경로명">

@@ -60,6 +60,83 @@ export interface RouteObservationStats {
   medianDistanceKm: number | null;
 }
 
+export type CatalogRouteMeasureSource = 'observed' | 'manual';
+export type CatalogRouteEstimateMode = 'AUTO' | 'MANUAL';
+
+export interface CatalogRouteDisplayStats {
+  distanceKm: number | null;
+  distanceSource: CatalogRouteMeasureSource | null;
+  elapsedMinutes: number | null;
+  elapsedSource: CatalogRouteMeasureSource | null;
+}
+
+export interface CatalogRoutePlannedStats {
+  distanceKm: number | null;
+  distanceSource: CatalogRouteMeasureSource | null;
+  baseElapsedMinutes: number | null;
+  elapsedMinutes: number | null;
+  elapsedSource: CatalogRouteMeasureSource | null;
+  bufferMinutes: number;
+  estimateMode: CatalogRouteEstimateMode;
+}
+
+export function catalogRouteDisplayStats(input: {
+  medianDistanceKm?: number | null;
+  medianElapsedMinutes?: number | null;
+  averageDistanceKm?: number | null;
+  averageTravelHours?: number | null;
+}): CatalogRouteDisplayStats {
+  const distanceKm = input.medianDistanceKm ?? input.averageDistanceKm ?? null;
+  const distanceSource =
+    input.medianDistanceKm != null ? 'observed' : input.averageDistanceKm != null ? 'manual' : null;
+  const elapsedMinutes =
+    input.medianElapsedMinutes ?? (input.averageTravelHours != null ? input.averageTravelHours * 60 : null);
+  const elapsedSource =
+    input.medianElapsedMinutes != null ? 'observed' : input.averageTravelHours != null ? 'manual' : null;
+  return { distanceKm, distanceSource, elapsedMinutes, elapsedSource };
+}
+
+export function catalogRoutePlannedStats(input: {
+  estimateMode?: CatalogRouteEstimateMode | null;
+  bufferMinutes?: number | null;
+  medianDistanceKm?: number | null;
+  medianElapsedMinutes?: number | null;
+  averageDistanceKm?: number | null;
+  averageTravelHours?: number | null;
+}): CatalogRoutePlannedStats {
+  const estimateMode: CatalogRouteEstimateMode = input.estimateMode === 'MANUAL' ? 'MANUAL' : 'AUTO';
+  const bufferMinutes = Math.max(0, Math.round(input.bufferMinutes ?? 0));
+  const display = catalogRouteDisplayStats(input);
+  const distanceKm = estimateMode === 'MANUAL' ? (input.averageDistanceKm ?? display.distanceKm) : display.distanceKm;
+  const distanceSource =
+    estimateMode === 'MANUAL'
+      ? input.averageDistanceKm != null
+        ? 'manual'
+        : display.distanceSource
+      : display.distanceSource;
+  const baseElapsedMinutes =
+    estimateMode === 'MANUAL'
+      ? input.averageTravelHours != null
+        ? input.averageTravelHours * 60
+        : display.elapsedMinutes
+      : display.elapsedMinutes;
+  const elapsedSource =
+    estimateMode === 'MANUAL'
+      ? input.averageTravelHours != null
+        ? 'manual'
+        : display.elapsedSource
+      : display.elapsedSource;
+  return {
+    distanceKm,
+    distanceSource,
+    baseElapsedMinutes,
+    elapsedMinutes: baseElapsedMinutes != null ? baseElapsedMinutes + bufferMinutes : null,
+    elapsedSource,
+    bufferMinutes,
+    estimateMode,
+  };
+}
+
 export function pairConfirmedVisits(visits: readonly LinkedVisitForPair[]): VisitObservationPair[] {
   const byProject = new Map<string, LinkedVisitForPair[]>();
   for (const visit of visits) {
@@ -210,6 +287,14 @@ export function summarizeRouteObservations(rows: readonly RouteObservationStatRo
 
 export function shouldPreserveHeldObservation(status: string | null | undefined): boolean {
   return status === 'HOLD';
+}
+
+export function shouldPreserveObservationIncludes(row: {
+  status?: string | null;
+  manualIncludeOverride?: boolean | null;
+} | null | undefined): boolean {
+  if (!row) return false;
+  return shouldPreserveHeldObservation(row.status) || Boolean(row.manualIncludeOverride);
 }
 
 function toPathPoint(point: ObservationGpsPoint): ObservationPathPoint {

@@ -1,7 +1,7 @@
-import { visitRegionFromCatalogName } from '@tour/domain';
+import { catalogRouteDisplayStats, visitRegionFromCatalogName } from '@tour/domain';
 import { Table, Td, Th } from '@tour/ui';
 import { useCallback, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   useAnalyzeCatalogRouteObservations,
   useCatalogRegions,
@@ -14,6 +14,9 @@ import {
 import {
   DatasetPageFooter,
   ROUTE_OBSERVATION_STATUS_LABEL,
+  catalogRouteMeasureSummary,
+  formatCatalogRouteKm,
+  formatCatalogRouteMinutes,
   routeObservationHoldReasonLabel,
 } from '../../features/dataset/labels';
 import { datasetTheme } from '../../features/dataset/theme';
@@ -35,34 +38,14 @@ const TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   minute: '2-digit',
 });
 
-function formatMinutes(value: number | null): string {
-  if (value == null || !Number.isFinite(value)) return '—';
-  const minutes = Math.round(value);
-  if (minutes >= 60) {
-    const hours = Math.floor(minutes / 60);
-    const rest = minutes % 60;
-    return rest ? `${hours}시간 ${rest}분` : `${hours}시간`;
-  }
-  return `${minutes}분`;
-}
-
 function formatElapsed(ms: number): string {
-  return formatMinutes(ms / 60_000);
-}
-
-function formatKm(value: number | null): string {
-  if (value == null) return '—';
-  return `${value.toFixed(1)}km`;
-}
-
-function formatAverageHours(value: number | null): string {
-  if (value == null) return '—';
-  return formatMinutes(value * 60);
+  return formatCatalogRouteMinutes(ms / 60_000);
 }
 
 export function DatasetRouteObservationsPage(): JSX.Element {
+  const [searchParams] = useSearchParams();
   const [regionId, setRegionId] = useState('');
-  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(() => searchParams.get('routeId'));
   const [selectedObservationId, setSelectedObservationId] = useState<string | null>(null);
   const [focus, setFocus] = useState<RouteObservationMapFocus>('fit-all');
   const [focusNonce, setFocusNonce] = useState(0);
@@ -153,7 +136,7 @@ export function DatasetRouteObservationsPage(): JSX.Element {
         <DatasetPageHeader
           breadcrumb="일정 데이터 관리 / 장소 · 지역 · 경로 / 경로 분석"
           title="경로 분석"
-          description="확정된 방문 사이 이동 1회를 모읍니다. 같은 출발→도착은 경로 하나에 붙고, 표본 수와 중앙값은 조회할 때 계산합니다."
+          description="확정된 방문 사이 이동 1회를 모읍니다. 같은 출발→도착은 경로 하나에 붙고, 경로 목록의 거리·시간은 실측 중앙값을 우선합니다."
           actions={
             <>
               <Link
@@ -272,7 +255,7 @@ export function DatasetRouteObservationsPage(): JSX.Element {
           </Table>
         </div>
 
-        <DatasetPageFooter screenId="T01-08 · 경로 분석" />
+        <DatasetPageFooter screenId="T01-05 · 경로 분석" />
       </section>
     </DatasetPageShell>
   );
@@ -287,31 +270,37 @@ function RouteStatCard({
   selected: boolean;
   onSelect: () => void;
 }): JSX.Element {
+  const measure = catalogRouteMeasureSummary(route);
+  const stats = catalogRouteDisplayStats(route);
+  const showsFallback = stats.distanceSource !== 'observed' || stats.elapsedSource !== 'observed';
   return (
-    <button
-      type="button"
+    <div
       className={`rounded-2xl border p-4 text-left transition ${
         selected ? 'border-[#6D5BD0] bg-[#F3F0FF]' : 'border-slate-200 bg-white hover:border-slate-300'
       }`}
-      onClick={onSelect}
     >
+      <button type="button" className="w-full text-left" onClick={onSelect}>
       <p className="text-xs font-medium text-[#8B83B8]">{route.code}</p>
       <h2 className="mt-1 text-sm font-semibold text-slate-900">
         {route.fromPlace.name} → {route.toPlace.name}
       </h2>
       <p className="mt-2 text-xs text-slate-600">
-        표본 {route.usableCount}/{route.observationCount} · 시간 {formatMinutes(route.medianElapsedMinutes)}
+        표본 {route.usableCount}/{route.observationCount} · 시간 {formatCatalogRouteMinutes(route.medianElapsedMinutes)}
         {route.minElapsedMinutes != null && route.maxElapsedMinutes != null
-          ? ` (${formatMinutes(route.minElapsedMinutes)}~${formatMinutes(route.maxElapsedMinutes)})`
+          ? ` (${formatCatalogRouteMinutes(route.minElapsedMinutes)}~${formatCatalogRouteMinutes(route.maxElapsedMinutes)})`
           : ''}
       </p>
-      <p className="text-xs text-slate-600">거리 {formatKm(route.medianDistanceKm)}</p>
-      {route.averageTravelHours != null || route.averageDistanceKm != null ? (
+      <p className="text-xs text-slate-600">거리 {formatCatalogRouteKm(route.medianDistanceKm)}</p>
+      {showsFallback ? (
         <p className="mt-1 text-xs text-slate-500">
-          수동 평균 {formatAverageHours(route.averageTravelHours)} · {formatKm(route.averageDistanceKm)}
+          목록 표시 {measure.primary} · {measure.source || '값 없음'}
         </p>
       ) : null}
-    </button>
+      </button>
+      <Link className="mt-2 inline-flex text-xs font-medium text-[#6D5BD0] underline" to={`/dataset/places/routes/${route.id}`}>
+        확인·보완
+      </Link>
+    </div>
   );
 }
 
@@ -331,7 +320,7 @@ function ObservationRow({
         {row.fromPlace.name} → {row.toPlace.name}
       </Td>
       <Td className="text-xs">{row.includeElapsed ? formatElapsed(row.elapsedMs) : '—'}</Td>
-      <Td className="text-xs">{row.includeDistance ? formatKm(row.distanceKm) : '—'}</Td>
+      <Td className="text-xs">{row.includeDistance ? formatCatalogRouteKm(row.distanceKm) : '—'}</Td>
       <Td className="text-xs">{ROUTE_OBSERVATION_STATUS_LABEL[row.status]}</Td>
       <Td className="text-xs">{routeObservationHoldReasonLabel(row.status, row.holdReason)}</Td>
     </tr>

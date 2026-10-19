@@ -6,6 +6,9 @@ import {
   pairConfirmedVisits,
   shouldPreserveHeldObservation,
   summarizeRouteObservations,
+  catalogRouteDisplayStats,
+  catalogRoutePlannedStats,
+  shouldPreserveObservationIncludes,
 } from './route-observation';
 
 describe('pairConfirmedVisits', () => {
@@ -105,9 +108,87 @@ describe('summarizeRouteObservations', () => {
   });
 });
 
+describe('catalogRouteDisplayStats', () => {
+  it('prefers observed medians over manual averages', () => {
+    expect(
+      catalogRouteDisplayStats({
+        medianDistanceKm: 12.4,
+        medianElapsedMinutes: 32,
+        averageDistanceKm: 240,
+        averageTravelHours: 4,
+      }),
+    ).toEqual({
+      distanceKm: 12.4,
+      distanceSource: 'observed',
+      elapsedMinutes: 32,
+      elapsedSource: 'observed',
+    });
+  });
+
+  it('falls back to manual averages when there is no usable observation', () => {
+    expect(
+      catalogRouteDisplayStats({
+        medianDistanceKm: null,
+        medianElapsedMinutes: null,
+        averageDistanceKm: 240,
+        averageTravelHours: 4,
+      }),
+    ).toEqual({
+      distanceKm: 240,
+      distanceSource: 'manual',
+      elapsedMinutes: 240,
+      elapsedSource: 'manual',
+    });
+  });
+});
+
 describe('medianNumber', () => {
   it('averages the two middle values for an even list', () => {
     expect(medianNumber([1, 2, 3, 4])).toBe(2.5);
+  });
+});
+
+describe('catalogRoutePlannedStats', () => {
+  it('adds buffer to observed elapsed time without changing distance', () => {
+    expect(
+      catalogRoutePlannedStats({
+        estimateMode: 'AUTO',
+        bufferMinutes: 5,
+        medianDistanceKm: 12.4,
+        medianElapsedMinutes: 32,
+        averageDistanceKm: 240,
+        averageTravelHours: 4,
+      }),
+    ).toEqual({
+      distanceKm: 12.4,
+      distanceSource: 'observed',
+      baseElapsedMinutes: 32,
+      elapsedMinutes: 37,
+      elapsedSource: 'observed',
+      bufferMinutes: 5,
+      estimateMode: 'AUTO',
+    });
+  });
+
+  it('locks manual values even when observations exist', () => {
+    expect(
+      catalogRoutePlannedStats({
+        estimateMode: 'MANUAL',
+        bufferMinutes: 10,
+        medianDistanceKm: 12.4,
+        medianElapsedMinutes: 32,
+        averageDistanceKm: 240,
+        averageTravelHours: 4,
+      }),
+    ).toEqual({
+      distanceKm: 240,
+      distanceSource: 'manual',
+      baseElapsedMinutes: 240,
+      elapsedMinutes: 250,
+      elapsedSource: 'manual',
+      bufferMinutes: 10,
+      estimateMode: 'MANUAL',
+    });
   });
 });
 
@@ -115,5 +196,12 @@ describe('shouldPreserveHeldObservation', () => {
   it('keeps HOLD rows', () => {
     expect(shouldPreserveHeldObservation('HOLD')).toBe(true);
     expect(shouldPreserveHeldObservation('AUTO')).toBe(false);
+  });
+});
+
+describe('shouldPreserveObservationIncludes', () => {
+  it('keeps operator include overrides on AUTO rows', () => {
+    expect(shouldPreserveObservationIncludes({ status: 'AUTO', manualIncludeOverride: true })).toBe(true);
+    expect(shouldPreserveObservationIncludes({ status: 'AUTO', manualIncludeOverride: false })).toBe(false);
   });
 });

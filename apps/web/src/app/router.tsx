@@ -72,6 +72,7 @@ import { DatasetProjectVisitImportPage } from '../pages/dataset/DatasetProjectVi
 import { DatasetPlaceSamplesPage } from '../pages/dataset/DatasetPlaceSamplesPage';
 import { DatasetVisitLinksPage } from '../pages/dataset/DatasetVisitLinksPage';
 import { DatasetRouteObservationsPage } from '../pages/dataset/DatasetRouteObservationsPage';
+import { DatasetRouteDetailPage } from '../pages/dataset/DatasetRouteDetailPage';
 import { DatasetElementsPage } from '../pages/dataset/DatasetElementsPage';
 import { DatasetBlocksPage } from '../pages/dataset/DatasetBlocksPage';
 import { DatasetTemplatesPage } from '../pages/dataset/DatasetTemplatesPage';
@@ -200,6 +201,10 @@ export const router = createBrowserRouter([
       {
         path: 'dataset/places/route-observations',
         element: <RequireStaffOrAbove><DatasetRouteObservationsPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'dataset/places/routes/:routeId',
+        element: <RequireStaffOrAbove><DatasetRouteDetailPage /></RequireStaffOrAbove>,
       },
       {
         path: 'dataset/places/:placeId/edit',

@@ -36,16 +36,20 @@ query CatalogRoutes {
       id
       name
     }
+    fromPlaceId
     fromPlace {
       id
       name
     }
+    toPlaceId
     toPlace {
       id
       name
     }
     averageDistanceKm
     averageTravelHours
+    estimateMode
+    bufferMinutes
     observationCount
     usableCount
     medianElapsedMinutes
@@ -87,6 +91,7 @@ query CatalogRouteObservations($regionId: ID, $projectId: ID, $routeId: ID) {
     maxGapMinutes
     includeDistance
     includeElapsed
+    manualIncludeOverride
     status
     holdReason
     path {
@@ -95,5 +100,38 @@ query CatalogRouteObservations($regionId: ID, $projectId: ID, $routeId: ID) {
       at
     }
     analyzedAt
+  }
+}
+
+query CatalogRoute($id: ID!) {
+  catalogRoute(id: $id) {
+    id
+    code
+    name
+    region {
+      id
+      name
+    }
+    fromPlaceId
+    fromPlace {
+      id
+      name
+    }
+    toPlaceId
+    toPlace {
+      id
+      name
+    }
+    averageDistanceKm
+    averageTravelHours
+    estimateMode
+    bufferMinutes
+    observationCount
+    usableCount
+    medianElapsedMinutes
+    minElapsedMinutes
+    maxElapsedMinutes
+    medianDistanceKm
+    status
   }
 }

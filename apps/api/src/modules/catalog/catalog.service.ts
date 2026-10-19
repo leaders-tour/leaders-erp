@@ -7,6 +7,7 @@ import {
   observationElapsedMs,
   pairConfirmedVisits,
   shouldPreserveHeldObservation,
+  shouldPreserveObservationIncludes,
   shouldPreserveManualVisitLink,
   summarizeRouteObservations,
   visitRegionFromCatalogName,
@@ -34,6 +35,7 @@ import {
   catalogRouteUpdateSchema,
   catalogRouteObservationAnalyzeSchema,
   catalogRouteObservationListSchema,
+  catalogRouteObservationUpdateSchema,
   catalogVisitLinkAnalyzeSchema,
   catalogVisitLinkConfirmSchema,
   catalogVisitLinkListSchema,
@@ -56,6 +58,7 @@ import {
   type CatalogRouteUpdateInput,
   type CatalogRouteObservationAnalyzeInput,
   type CatalogRouteObservationListInput,
+  type CatalogRouteObservationUpdateInput,
   type CatalogVisitLinkAnalyzeInput,
   type CatalogVisitLinkConfirmInput,
   type CatalogVisitLinkListInput,
@@ -156,6 +159,12 @@ export class CatalogService {
     }));
   }
 
+  async getRoute(id: string) {
+    const route = await this.repository.getRoute(id);
+    if (!route) throw new DomainError('NOT_FOUND', '경로를 찾을 수 없습니다.');
+    return this.withRouteStats(route);
+  }
+
   async listRouteObservations(input: CatalogRouteObservationListInput = {}) {
     const data = parseOrThrow(catalogRouteObservationListSchema, input, 'catalog route observation list');
     return this.repository.listObservations({
@@ -217,13 +226,30 @@ export class CatalogService {
     const data = parseOrThrow(catalogRouteCreateSchema, input, 'catalog route input');
     const created = await this.repository.createRoute(data);
     await this.repository.writeLog({ targetType: 'ROUTE', targetId: created.id, action: 'CREATE', summary: created.name });
-    return created;
+    return this.withRouteStats(created);
   }
 
   async updateRoute(id: string, input: CatalogRouteUpdateInput) {
     const data = parseOrThrow(catalogRouteUpdateSchema, input, 'catalog route update');
     const updated = await this.repository.updateRoute(id, data);
     await this.repository.writeLog({ targetType: 'ROUTE', targetId: id, action: 'UPDATE', summary: updated.name });
+    return this.withRouteStats(updated);
+  }
+
+  async updateRouteObservation(id: string, input: CatalogRouteObservationUpdateInput) {
+    const data = parseOrThrow(catalogRouteObservationUpdateSchema, input, 'catalog route observation update');
+    const existing = await this.repository.getObservation(id);
+    if (!existing) throw new DomainError('NOT_FOUND', '경로 관측을 찾을 수 없습니다.');
+    const updated = await this.repository.updateObservation(id, {
+      ...data,
+      manualIncludeOverride: true,
+    });
+    await this.repository.writeLog({
+      targetType: 'ROUTE_OBSERVATION',
+      targetId: id,
+      action: 'UPDATE',
+      summary: `${existing.fromPlace.name} → ${existing.toPlace.name} 집계 조정`,
+    });
     return updated;
   }
 
@@ -535,7 +561,7 @@ export class CatalogService {
     );
     const existing = await this.repository.listObservationsByVisitLinkIds(pairs.map((pair) => pair.from.id));
     const existingByPair = new Map(
-      existing.map((row) => [`${row.fromVisitLinkId}:${row.toVisitLinkId}`, row.status]),
+      existing.map((row) => [`${row.fromVisitLinkId}:${row.toVisitLinkId}`, row]),
     );
     const linkById = new Map(scoped.map((link) => [link.id, link]));
     const logsByProject = new Map<string, Array<{ latitude: number; longitude: number; recordedAt: string }>>();
@@ -559,7 +585,8 @@ export class CatalogService {
 
     for (const pair of pairs) {
       const key = `${pair.from.id}:${pair.to.id}`;
-      if (shouldPreserveHeldObservation(existingByPair.get(key) ?? null)) {
+      const previous = existingByPair.get(key);
+      if (shouldPreserveHeldObservation(previous?.status)) {
         protectedHold += 1;
         continue;
       }
@@ -604,8 +631,13 @@ export class CatalogService {
         elapsedMs: Math.min(elapsedMs, 2_147_483_647),
         distanceKm: metrics.distanceKm,
         maxGapMinutes: metrics.maxGapMinutes,
-        includeDistance: metrics.includeDistance,
-        includeElapsed: metrics.includeElapsed,
+        includeDistance: shouldPreserveObservationIncludes(previous) && previous
+          ? previous.includeDistance
+          : metrics.includeDistance,
+        includeElapsed: shouldPreserveObservationIncludes(previous) && previous
+          ? previous.includeElapsed
+          : metrics.includeElapsed,
+        manualIncludeOverride: previous?.manualIncludeOverride ?? false,
         status: metrics.status,
         holdReason: metrics.holdReason,
         path: metrics.path,
@@ -736,5 +768,13 @@ export class CatalogService {
     }
 
     return allVisits;
+  }
+
+  private async withRouteStats<T extends { id: string }>(route: T) {
+    const rows = await this.repository.listObservationStatRowsForRoute(route.id);
+    return {
+      ...route,
+      ...summarizeRouteObservations(rows),
+    };
   }
 }

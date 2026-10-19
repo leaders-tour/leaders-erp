@@ -9,6 +9,7 @@ import type {
   CatalogVisitLinkReviewReason,
   CatalogVisitLinkStatus,
   CatalogVisitRegion,
+  CatalogRouteEstimateMode,
   CatalogRouteObservationHoldReason,
   CatalogRouteObservationStatus,
 } from './labels';
@@ -62,10 +63,14 @@ export interface CatalogRouteRow {
   code: string;
   name: string;
   region: { id: string; name: string } | null;
+  fromPlaceId: string;
   fromPlace: { id: string; name: string };
+  toPlaceId: string;
   toPlace: { id: string; name: string };
   averageDistanceKm: number | null;
   averageTravelHours: number | null;
+  estimateMode: CatalogRouteEstimateMode;
+  bufferMinutes: number;
   observationCount: number;
   usableCount: number;
   medianElapsedMinutes: number | null;
@@ -99,6 +104,7 @@ export interface CatalogRouteObservationRow {
   maxGapMinutes: number;
   includeDistance: boolean;
   includeElapsed: boolean;
+  manualIncludeOverride: boolean;
   status: CatalogRouteObservationStatus;
   holdReason: CatalogRouteObservationHoldReason | null;
   path: CatalogRouteObservationPathPoint[];
@@ -278,16 +284,20 @@ const ROUTES_QUERY = gql`
         id
         name
       }
+      fromPlaceId
       fromPlace {
         id
         name
       }
+      toPlaceId
       toPlace {
         id
         name
       }
       averageDistanceKm
       averageTravelHours
+      estimateMode
+      bufferMinutes
       observationCount
       usableCount
       medianElapsedMinutes
@@ -494,6 +504,52 @@ const UPDATE_ROUTE = gql`
   }
 `;
 
+const CATALOG_ROUTE_QUERY = gql`
+  query CatalogRoute($id: ID!) {
+    catalogRoute(id: $id) {
+      id
+      code
+      name
+      region {
+        id
+        name
+      }
+      fromPlaceId
+      fromPlace {
+        id
+        name
+      }
+      toPlaceId
+      toPlace {
+        id
+        name
+      }
+      averageDistanceKm
+      averageTravelHours
+      estimateMode
+      bufferMinutes
+      observationCount
+      usableCount
+      medianElapsedMinutes
+      minElapsedMinutes
+      maxElapsedMinutes
+      medianDistanceKm
+      status
+    }
+  }
+`;
+
+const UPDATE_ROUTE_OBSERVATION = gql`
+  mutation UpdateCatalogRouteObservation($id: ID!, $input: CatalogRouteObservationUpdateInput!) {
+    updateCatalogRouteObservation(id: $id, input: $input) {
+      id
+      includeElapsed
+      includeDistance
+      manualIncludeOverride
+    }
+  }
+`;
+
 const CREATE_ELEMENT = gql`
   mutation CreateCatalogElement($input: CatalogElementCreateInput!) {
     createCatalogElement(input: $input) {
@@ -622,6 +678,13 @@ export function useCatalogRoutes() {
   return useQuery<{ catalogRoutes: CatalogRouteRow[] }>(ROUTES_QUERY);
 }
 
+export function useCatalogRoute(id: string | undefined) {
+  return useQuery<{ catalogRoute: CatalogRouteRow }>(CATALOG_ROUTE_QUERY, {
+    variables: { id },
+    skip: !id,
+  });
+}
+
 export function useCatalogElements() {
   return useQuery<{ catalogElements: CatalogElementRow[] }>(ELEMENTS_QUERY);
 }
@@ -669,6 +732,10 @@ export function useCreateCatalogRoute() {
 
 export function useUpdateCatalogRoute() {
   return useMutation(UPDATE_ROUTE, { refetchQueries: [{ query: ROUTES_QUERY }] });
+}
+
+export function useUpdateCatalogRouteObservation() {
+  return useMutation(UPDATE_ROUTE_OBSERVATION, { refetchQueries: [{ query: ROUTES_QUERY }] });
 }
 
 export function useCreateCatalogElement() {
@@ -889,6 +956,7 @@ const ROUTE_OBSERVATIONS_QUERY = gql`
       maxGapMinutes
       includeDistance
       includeElapsed
+      manualIncludeOverride
       status
       holdReason
       path {

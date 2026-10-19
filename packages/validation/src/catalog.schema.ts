@@ -14,6 +14,7 @@ const catalogPlaceTypeSchema = z.enum([
 ]);
 const catalogVisitJudgmentTypeSchema = z.enum(['PASS', 'STAY']);
 const catalogUsageStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
+const catalogRouteEstimateModeSchema = z.enum(['AUTO', 'MANUAL']);
 const catalogElementCompositionSchema = z.enum(['SINGLE', 'SET']);
 const catalogElementKindSchema = z.enum(['MEETING', 'TRANSFER', 'MEAL', 'EXPERIENCE', 'MIXED']);
 const catalogBlockShapeSchema = z.enum(['DAY', 'SET']);
@@ -137,10 +138,21 @@ export const catalogRouteCreateSchema = z.object({
   regionId: optionalId,
   averageDistanceKm: z.number().nonnegative().nullable().optional(),
   averageTravelHours: z.number().nonnegative().nullable().optional(),
+  estimateMode: catalogRouteEstimateModeSchema.optional(),
+  bufferMinutes: z.number().int().min(0).max(1440).optional(),
   status: catalogUsageStatusSchema.optional(),
 });
 
 export const catalogRouteUpdateSchema = catalogRouteCreateSchema.partial();
+
+export const catalogRouteObservationUpdateSchema = z
+  .object({
+    includeElapsed: z.boolean().optional(),
+    includeDistance: z.boolean().optional(),
+  })
+  .refine((data) => data.includeElapsed !== undefined || data.includeDistance !== undefined, {
+    message: 'includeElapsed or includeDistance is required',
+  });
 
 export const catalogElementCreateSchema = z.object({
   name: z.string().min(1).max(120),
@@ -259,3 +271,4 @@ export type CatalogVisitLinkConfirmInput = z.infer<typeof catalogVisitLinkConfir
 export type CatalogVisitLinkListInput = z.infer<typeof catalogVisitLinkListSchema>;
 export type CatalogRouteObservationAnalyzeInput = z.infer<typeof catalogRouteObservationAnalyzeSchema>;
 export type CatalogRouteObservationListInput = z.infer<typeof catalogRouteObservationListSchema>;
+export type CatalogRouteObservationUpdateInput = z.infer<typeof catalogRouteObservationUpdateSchema>;

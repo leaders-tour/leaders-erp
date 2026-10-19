@@ -7,3 +7,12 @@ mutation AnalyzeCatalogRouteObservations($input: CatalogRouteObservationAnalyzeI
     protectedHold
   }
 }
+
+mutation UpdateCatalogRouteObservation($id: ID!, $input: CatalogRouteObservationUpdateInput!) {
+  updateCatalogRouteObservation(id: $id, input: $input) {
+    id
+    includeElapsed
+    includeDistance
+    manualIncludeOverride
+  }
+}

@@ -1,3 +1,9 @@
+import {
+  catalogRouteDisplayStats,
+  catalogRoutePlannedStats,
+  type CatalogRouteEstimateMode,
+  type CatalogRouteMeasureSource,
+} from '@tour/domain';
 import { datasetTheme } from './theme';
 
 export type CatalogPlaceType =
@@ -21,6 +27,12 @@ export type CatalogVisitLinkReviewReason = 'OVERLAP' | 'NONE';
 export type CatalogVisitRegion = 'GOBI' | 'CENTRAL' | 'KHUVSGUL' | 'TERELJ' | 'ULAANBAATAR' | 'OTHER';
 export type CatalogRouteObservationStatus = 'AUTO' | 'HOLD';
 export type CatalogRouteObservationHoldReason = 'GAP' | 'JUMP' | 'NO_PATH';
+export type { CatalogRouteEstimateMode };
+
+export const ROUTE_ESTIMATE_MODE_LABEL: Record<CatalogRouteEstimateMode, string> = {
+  AUTO: '자동 · 실측 우선',
+  MANUAL: '수동 고정',
+};
 
 export const PLACE_TYPE_LABEL: Record<CatalogPlaceType, string> = {
   LODGING: '숙소',
@@ -143,6 +155,72 @@ export const ROUTE_OBSERVATION_HOLD_REASON_LABEL: Record<CatalogRouteObservation
   JUMP: '점프',
   NO_PATH: '경로 없음',
 };
+
+export function formatCatalogRouteMinutes(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  const minutes = Math.round(value);
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest ? `${hours}시간 ${rest}분` : `${hours}시간`;
+  }
+  return `${minutes}분`;
+}
+
+export function formatCatalogRouteKm(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return Number.isInteger(value) ? `${value}km` : `${value.toFixed(1)}km`;
+}
+
+export function catalogRouteMeasureLabel(source: CatalogRouteMeasureSource | null): string {
+  if (source === 'observed') return '실측';
+  if (source === 'manual') return '수동';
+  return '';
+}
+
+export function catalogRoutePlannedSummary(route: {
+  estimateMode?: CatalogRouteEstimateMode | null;
+  bufferMinutes?: number | null;
+  medianDistanceKm?: number | null;
+  medianElapsedMinutes?: number | null;
+  averageDistanceKm?: number | null;
+  averageTravelHours?: number | null;
+}): { primary: string; detail: string } {
+  const planned = catalogRoutePlannedStats(route);
+  const source = catalogRouteMeasureLabel(planned.elapsedSource) || '미정';
+  const buffer =
+    planned.bufferMinutes > 0 && planned.baseElapsedMinutes != null
+      ? `${formatCatalogRouteMinutes(planned.baseElapsedMinutes)} + ${planned.bufferMinutes}분`
+      : source;
+  return {
+    primary: `${formatCatalogRouteKm(planned.distanceKm)} · ${formatCatalogRouteMinutes(planned.elapsedMinutes)}`,
+    detail: planned.elapsedMinutes == null ? '예상값 미정' : `${ROUTE_ESTIMATE_MODE_LABEL[planned.estimateMode]} · ${buffer}`,
+  };
+}
+
+export function catalogRouteMeasureSummary(route: {
+  medianDistanceKm?: number | null;
+  medianElapsedMinutes?: number | null;
+  averageDistanceKm?: number | null;
+  averageTravelHours?: number | null;
+  usableCount?: number;
+}): { primary: string; source: string } {
+  const stats = catalogRouteDisplayStats(route);
+  const primary = `${formatCatalogRouteKm(stats.distanceKm)} · ${formatCatalogRouteMinutes(stats.elapsedMinutes)}`;
+  if (stats.distanceSource === 'observed' && stats.elapsedSource === 'observed') {
+    const count = route.usableCount ?? 0;
+    return { primary, source: count > 0 ? `실측 ${count}건` : '실측' };
+  }
+  if (stats.distanceSource === 'manual' && stats.elapsedSource === 'manual') {
+    return { primary, source: '수동' };
+  }
+  if (!stats.distanceSource && !stats.elapsedSource) {
+    return { primary, source: '' };
+  }
+  const distance = catalogRouteMeasureLabel(stats.distanceSource) || '없음';
+  const elapsed = catalogRouteMeasureLabel(stats.elapsedSource) || '없음';
+  return { primary, source: `거리 ${distance} · 시간 ${elapsed}` };
+}
 
 export function routeObservationHoldReasonLabel(
   status: CatalogRouteObservationStatus,

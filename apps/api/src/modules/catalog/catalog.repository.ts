@@ -112,6 +112,7 @@ export interface CatalogRouteObservationWriteData {
   maxGapMinutes: number;
   includeDistance: boolean;
   includeElapsed: boolean;
+  manualIncludeOverride: boolean;
   status: CatalogRouteObservationStatus;
   holdReason: CatalogRouteObservationHoldReason | null;
   path: Array<{ lat: number; lng: number; at: string }>;
@@ -170,6 +171,13 @@ export class CatalogRepository {
       where: status ? { status } : undefined,
       include: { region: true, fromPlace: true, toPlace: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+  }
+
+  getRoute(id: string) {
+    return this.prisma.catalogRoute.findUnique({
+      where: { id },
+      include: { region: true, fromPlace: true, toPlace: true },
     });
   }
 
@@ -312,6 +320,8 @@ export class CatalogRepository {
         regionId: data.regionId ?? null,
         averageDistanceKm: data.averageDistanceKm ?? null,
         averageTravelHours: data.averageTravelHours ?? null,
+        estimateMode: data.estimateMode ?? 'AUTO',
+        bufferMinutes: data.bufferMinutes ?? 0,
         status: data.status ?? 'ACTIVE',
         sortOrder: count + 100,
       },
@@ -329,6 +339,8 @@ export class CatalogRepository {
         ...(data.regionId !== undefined ? { regionId: data.regionId } : {}),
         ...(data.averageDistanceKm !== undefined ? { averageDistanceKm: data.averageDistanceKm } : {}),
         ...(data.averageTravelHours !== undefined ? { averageTravelHours: data.averageTravelHours } : {}),
+        ...(data.estimateMode != null ? { estimateMode: data.estimateMode } : {}),
+        ...(data.bufferMinutes != null ? { bufferMinutes: data.bufferMinutes } : {}),
         ...(data.status != null ? { status: data.status } : {}),
       },
       include: { region: true, fromPlace: true, toPlace: true },
@@ -793,11 +805,58 @@ export class CatalogRepository {
     });
   }
 
+  listObservationStatRowsForRoute(routeId: string) {
+    return this.prisma.catalogRouteObservation.findMany({
+      where: { routeId },
+      select: {
+        routeId: true,
+        status: true,
+        includeElapsed: true,
+        includeDistance: true,
+        elapsedMs: true,
+        distanceKm: true,
+      },
+    });
+  }
+
   listObservationsByVisitLinkIds(fromVisitLinkIds: string[]) {
     if (fromVisitLinkIds.length === 0) return Promise.resolve([]);
     return this.prisma.catalogRouteObservation.findMany({
       where: { fromVisitLinkId: { in: fromVisitLinkIds } },
-      select: { fromVisitLinkId: true, toVisitLinkId: true, status: true },
+      select: {
+        fromVisitLinkId: true,
+        toVisitLinkId: true,
+        status: true,
+        includeElapsed: true,
+        includeDistance: true,
+        manualIncludeOverride: true,
+      },
+    });
+  }
+
+  getObservation(id: string) {
+    return this.prisma.catalogRouteObservation.findUnique({
+      where: { id },
+      include: observationInclude,
+    });
+  }
+
+  updateObservation(
+    id: string,
+    data: {
+      includeElapsed?: boolean;
+      includeDistance?: boolean;
+      manualIncludeOverride?: boolean;
+    },
+  ) {
+    return this.prisma.catalogRouteObservation.update({
+      where: { id },
+      data: {
+        ...(data.includeElapsed !== undefined ? { includeElapsed: data.includeElapsed } : {}),
+        ...(data.includeDistance !== undefined ? { includeDistance: data.includeDistance } : {}),
+        ...(data.manualIncludeOverride !== undefined ? { manualIncludeOverride: data.manualIncludeOverride } : {}),
+      },
+      include: observationInclude,
     });
   }
 
@@ -821,6 +880,7 @@ export class CatalogRepository {
       maxGapMinutes: data.maxGapMinutes,
       includeDistance: data.includeDistance,
       includeElapsed: data.includeElapsed,
+      manualIncludeOverride: data.manualIncludeOverride,
       status: data.status,
       holdReason: data.holdReason,
       path: data.path as unknown as Prisma.InputJsonValue,
