@@ -1,5 +1,5 @@
 import type { Readable } from 'node:stream';
-import { createHash, createHmac } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { DomainError } from '../errors';
 
 export interface UploadFile {
@@ -70,6 +70,20 @@ function deriveBaseName(filename: string): string {
   return sanitized.length > 0 ? sanitized : 'image';
 }
 
+export function buildImageObjectKey(params: {
+  keyPrefix?: string;
+  date: Date;
+  filename: string;
+  uniqueId: string;
+}): string {
+  const kstYyMmDd = toKstYyMmDd(params.date);
+  const extension = deriveExtension(params.filename);
+  const uniqueId = sanitizeFilename(params.uniqueId);
+  const objectName = `${deriveBaseName(params.filename)}-${uniqueId || randomUUID()}${extension}`;
+  const prefix = params.keyPrefix ? sanitizeKeyPrefix(params.keyPrefix) : '';
+  return prefix ? `${prefix}/${kstYyMmDd}/${objectName}` : `${kstYyMmDd}/${objectName}`;
+}
+
 async function streamToBuffer(stream: Readable, maxBytes: number): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let total = 0;
@@ -119,11 +133,12 @@ export class FileStorageClient {
     const date = new Date();
     const amzDate = toAmzDate(date);
     const shortDate = amzDate.slice(0, 8);
-    const kstYyMmDd = toKstYyMmDd(date);
-    const extension = deriveExtension(file.filename);
-    const key = this.keyPrefix
-      ? `${this.keyPrefix}/${kstYyMmDd}/${deriveBaseName(file.filename)}${extension}`
-      : `${kstYyMmDd}/${deriveBaseName(file.filename)}${extension}`;
+    const key = buildImageObjectKey({
+      keyPrefix: this.keyPrefix,
+      date,
+      filename: file.filename,
+      uniqueId: randomUUID(),
+    });
     const encodedKey = encodeS3Key(key);
     const host = `${this.bucket}.s3.${this.region}.amazonaws.com`;
     const endpoint = `https://${host}/${encodedKey}`;
